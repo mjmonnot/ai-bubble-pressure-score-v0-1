@@ -70,89 +70,137 @@ df["AIBPS_RA"] = df["AIBPS_custom"].rolling(3, min_periods=1).mean()
 
 # ---- Composite chart ----
 
-# ---- Weighted contributions (latest) — Altair with toggles ----
+# ---- Composite chart ----
 import altair as alt
 
-st.subheader("Weighted contributions (latest)")
+st.subheader("Composite (3-quarter rolling average)")
 
-# Controls
-c1, c2, c3 = st.columns([1.2, 1.2, 1.6])
-with c1:
-    sort_desc = st.checkbox("Sort by size (desc)", value=True)
-with c2:
-    show_labels = st.checkbox("Show value labels", value=True)
-with c3:
-    normalize_pct = st.checkbox("Normalize to % of composite", value=False)
+# 1) Ensure composite columns exist (in case earlier lines were removed)
+if "AIBPS_custom" not in df.columns or "AIBPS_RA" not in df.columns:
+    # Fallback: compute from pillars + current weights
+    _pillars_present = [p for p in pillars if p in df.columns]
+    if _pillars_present:
+        df["AIBPS_custom"] = (df[_pillars_present] * weights[:len(_pillars_present)]).sum(axis=1)
+    else:
+        # Nothing to compute from; create a safe empty series
+        df["AIBPS_custom"] = np.nan
+    df["AIBPS_RA"] = df["AIBPS_custom"].rolling(3, min_periods=1).mean()
 
-# Prepare latest values
-latest_vals = np.array([
-    df[p].dropna().iloc[-1] if not df[p].dropna().empty else 0.0
-    for p in pillars
-])
-contrib = latest_vals * weights
-composite_now = float(contrib.sum())
+# 2) Robust Date handling for Altair (works regardless of index name)
+df_plot = df.reset_index()
+# Create a 'Date' column from the first column post-reset_index
+_date_col = df_plot.columns[0]
+df_plot["Date"] = pd.to_datetime(df_plot[_date_col])
+# Keep only what we need
+df_plot = df_plot[["Date", "AIBPS_RA"]].dropna()
 
-data = pd.DataFrame({
-    "Pillar": pillars,
-    "Contribution": contrib
-})
-
-if normalize_pct and composite_now > 0:
-    data["Contribution"] = 100.0 * data["Contribution"] / composite_now
-    x_title = "Contribution (% of composite)"
-    rule_x = 100.0
+# If still empty, show a friendly message and bail out gracefully
+if df_plot.empty:
+    st.warning("No composite data available yet. Adjust weights or ensure pillars are present.")
 else:
-    x_title = "Contribution (points)"
-    rule_x = composite_now
+    # Controls row (toggle visibility + opacity)
+    ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([1.2, 1.2, 1.2, 2.4])
+    with ctrl1:
+        show_bands = st.checkbox("Show risk bands", value=True)
+    with ctrl2:
+        show_rules = st.checkbox("Show thresholds", value=True)
+    with ctrl3:
+        show_points = st.checkbox("Show points", value=True)
+    with ctrl4:
+        band_opacity = st.slider("Band opacity", 0.00, 0.40, 0.18, 0.02)
 
-# Base bar chart
-bar = (
-    alt.Chart(data)
-    .mark_bar()
-    .encode(
-        y=alt.Y(
-            "Pillar:N",
-            sort="-x" if sort_desc else None,
-            title="Pillar"
-        ),
-        x=alt.X(
-            "Contribution:Q",
-            title=x_title
-        ),
-        tooltip=[
-            alt.Tooltip("Pillar:N"),
-            alt.Tooltip("Contribution:Q", format=".1f"),
-        ],
-        color=alt.Color("Pillar:N", legend=None)
+    ymin, ymax = 0, 100
+    start_date = df_plot["Date"].min()
+    end_date = df_plot["Date"].max()
+
+    # Dynamic zone badge
+    latest_val = float(df_plot["AIBPS_RA"].iloc[-1])
+
+    def _zone_label(x: float):
+        if x < 50:   return "Watch (<50)", "#b7e3b1"
+        if x < 70:   return "Rising (50–70)", "#fde28a"
+        if x < 85:   return "Elevated (70–85)", "#f7b267"
+        return "Critical (>85)", "#f08080"
+
+    z_label, z_color = _zone_label(latest_val)
+    st.markdown(
+        f"""
+        <div style="display:inline-block;padding:10px 14px;border-radius:12px;
+                    background:{z_color};color:#222;font-weight:600;margin-bottom:6px;">
+            AIBPS (3Q RA): {latest_val:.1f} — {z_label}
+        </div>
+        """,
+        unsafe_allow_html=True
     )
-)
 
-layers = [bar]
-
-# Composite reference rule (dotted)
-rule_df = pd.DataFrame({"x": [rule_x]})
-rule = (
-    alt.Chart(rule_df)
-    .mark_rule(strokeDash=[4, 4], color="gray")
-    .encode(x="x:Q")
-)
-layers.append(rule)
-
-# Optional value labels
-if show_labels:
-    text = (
-        alt.Chart(data)
-        .mark_text(align="left", baseline="middle", dx=4)
+    # Base line layer
+    line = (
+        alt.Chart(df_plot)
+        .mark_line(point=False, strokeWidth=2, color="#e07b39")
         .encode(
-            y="Pillar:N",
-            x="Contribution:Q",
-            text=alt.Text("Contribution:Q", format=".1f")
+            x=alt.X("Date:T", axis=alt.Axis(title="Date")),
+            y=alt.Y("AIBPS_RA:Q", scale=alt.Scale(domain=[ymin, ymax]),
+                    axis=alt.Axis(title="Composite Score (0–100)")),
+            tooltip=[
+                alt.Tooltip("Date:T", title="Date"),
+                alt.Tooltip("AIBPS_RA:Q", title="AIBPS (3Q RA)", format=".1f"),
+            ],
         )
     )
-    layers.append(text)
 
-chart = alt.layer(*layers).resolve_scale(x="shared", y="shared")
-st.altair_chart(chart, use_container_width=True)
+    layers = [line]
+
+    # Optional points
+    if show_points:
+        points = (
+            alt.Chart(df_plot)
+            .mark_circle(size=28, color="#e07b39", opacity=0.8)
+            .encode(
+                x="Date:T",
+                y="AIBPS_RA:Q",
+                tooltip=[
+                    alt.Tooltip("Date:T", title="Date"),
+                    alt.Tooltip("AIBPS_RA:Q", title="AIBPS (3Q RA)", format=".1f"),
+                ],
+            )
+        )
+        layers.append(points)
+
+    # Optional bands
+    if show_bands:
+        bands_df = pd.DataFrame([
+            {"label": "Watch (<50)",      "y_start": 0,  "y_end": 50, "start": start_date, "end": end_date},
+            {"label": "Rising (50–70)",   "y_start": 50, "y_end": 70, "start": start_date, "end": end_date},
+            {"label": "Elevated (70–85)", "y_start": 70, "y_end": 85, "start": start_date, "end": end_date},
+            {"label": "Critical (>85)",   "y_start": 85, "y_end": 100,"start": start_date, "end": end_date},
+        ])
+        band_colors = ["#b7e3b1", "#fde28a", "#f7b267", "#f08080"]
+        bands = (
+            alt.Chart(bands_df)
+            .mark_rect(opacity=float(band_opacity))
+            .encode(
+                x="start:T", x2="end:T",
+                y="y_start:Q", y2="y_end:Q",
+                color=alt.Color("label:N",
+                                scale=alt.Scale(range=band_colors),
+                                legend=alt.Legend(title="Zones")),
+            )
+        )
+        layers.insert(0, bands)
+
+    # Optional threshold rules
+    if show_rules:
+        rules_df = pd.DataFrame({"y": [50, 70, 85], "label": ["Watch", "Rising", "Elevated"]})
+        rules = (
+            alt.Chart(rules_df)
+            .mark_rule(strokeDash=[4, 4], color="gray")
+            .encode(y="y:Q")
+        )
+        layers.append(rules)
+
+    chart = alt.layer(*layers).resolve_scale(y="shared").interactive()
+    st.altair_chart(chart, use_container_width=True)
+
 
 
 # ---- Export to PDF ----
