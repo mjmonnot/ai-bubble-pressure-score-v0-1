@@ -16,11 +16,18 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Check out repo
+      - name: Check out repo (main, full history)
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: true
+
+      - name: Show branch and last commit
+        run: |
+          echo "Branch:" $(git rev-parse --abbrev-ref HEAD)
+          echo "Commit:" $(git rev-parse HEAD)
+          git log -1 --stat
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,30 +40,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---------- Pre-run print to verify the file the runner sees ----------
-      - name: Show current fetch_market.py (first 60 lines)
+      # ---------- Guard + preview for fetch_market.py ----------
+      - name: Verify fetch_market.py on runner (no rename) + preview
         run: |
-          echo "===== Showing current file content: src/aibps/fetch_market.py ====="
+          echo "===== HEAD of src/aibps/fetch_market.py ====="
           if [ -f src/aibps/fetch_market.py ]; then
-            sed -n '1,60p' src/aibps/fetch_market.py
+            sed -n '1,120p' src/aibps/fetch_market.py
+            echo "--------------------------------------------"
+            if grep -n "rename(" src/aibps/fetch_market.py; then
+              echo "::error ::Found '.rename(' in fetch_market.py — refusing to run"
+              exit 1
+            else
+              echo "OK: no .rename( found in fetch_market.py"
+            fi
           else
-            echo "File not found!"
+            echo "::error ::src/aibps/fetch_market.py not found"
+            exit 1
           fi
-          echo "==================================================================="
 
       - name: Fetch market proxies (yfinance)
         run: |
           python src/aibps/fetch_market.py
 
-      - name: Show current fetch_credit.py (first 60 lines)
+      # ---------- Preview for fetch_credit.py ----------
+      - name: Preview fetch_credit.py (first 120 lines)
         run: |
-          echo "===== Showing current file content: src/aibps/fetch_credit.py ====="
+          echo "===== HEAD of src/aibps/fetch_credit.py ====="
           if [ -f src/aibps/fetch_credit.py ]; then
-            sed -n '1,60p' src/aibps/fetch_credit.py
+            sed -n '1,120p' src/aibps/fetch_credit.py
           else
-            echo "File not found!"
+            echo "::error ::src/aibps/fetch_credit.py not found"
+            exit 1
           fi
-          echo "==================================================================="
 
       - name: Fetch credit (FRED)
         env:
@@ -68,20 +83,22 @@ jobs:
         run: |
           python src/aibps/compute.py
 
-      # ---------- Rebase-aware commit & push to avoid non-fast-forward ----------
+      # ---------- Commit/push with rebase (avoid non-fast-forward) ----------
       - name: Commit processed files
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Stage changes if any CSVs updated
           git add data/raw/*.csv data/processed/*.csv || true
 
-          # If nothing staged, exit early
+          # If nothing staged, stop here
           if git diff --cached --quiet; then
             echo "No data changes to commit."
             exit 0
           fi
 
+          # Rebase onto latest main to avoid push rejection
           git fetch origin main
           git pull --rebase origin main || true
 
