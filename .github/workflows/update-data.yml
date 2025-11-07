@@ -31,8 +31,13 @@ jobs:
           pip install -r requirements.txt
 
       # ---- Fetch raw data (uses your existing scripts) ----
-      - name: Fetch market proxies (yfinance)
-        run: python src/aibps/fetch_market.py
+- name: Show current fetch_market.py (first 40 lines)
+  run: |
+    echo "===== Showing current file content ====="
+    head -n 40 src/aibps/fetch_market.py || true
+    echo "========================================"
+    python src/aibps/fetch_market.py
+
 
       - name: Fetch credit (FRED)
         env:
