@@ -2,7 +2,7 @@ name: Update data and compute AIBPS
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "0 */6 * * *"   # every 6 hours (UTC)
   workflow_dispatch:
 
 permissions:
@@ -40,57 +40,63 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ----- Guard + preview for fetch_market.py -----
-      - name: Verify fetch_market.py on runner (no rename) + preview
+      # ---------- Verify fetch scripts on runner ----------
+      - name: Preview fetch scripts (first 120 lines)
         run: |
-          echo "===== HEAD of src/aibps/fetch_market.py ====="
-          if [ -f src/aibps/fetch_market.py ]; then
-            sed -n '1,120p' src/aibps/fetch_market.py
-            echo "--------------------------------------------"
-            if grep -n "rename(" src/aibps/fetch_market.py; then
-              echo "::error ::Found '.rename(' in fetch_market.py — refusing to run"
-              exit 1
-            else
-              echo "OK: no .rename( found in fetch_market.py"
-            fi
-          else
-            echo "::error ::src/aibps/fetch_market.py not found"
-            exit 1
-          fi
+          echo "===== src/aibps/fetch_market.py ====="
+          if [ -f src/aibps/fetch_market.py ]; then sed -n '1,120p' src/aibps/fetch_market.py; else echo "fetch_market.py missing"; fi
+          echo "===== src/aibps/fetch_market_safe.py ====="
+          if [ -f src/aibps/fetch_market_safe.py ]; then sed -n '1,120p' src/aibps/fetch_market_safe.py; else echo "fetch_market_safe.py missing"; fi
+          echo "===== src/aibps/fetch_credit.py ====="
+          if [ -f src/aibps/fetch_credit.py ]; then sed -n '1,120p' src/aibps/fetch_credit.py; else echo "fetch_credit.py missing"; fi
+          echo "=================================================="
 
+      # ---------- Guard: if old fetch_market.py contains .rename(, use safe script ----------
       - name: Fetch market proxies (yfinance)
-        run: python src/aibps/fetch_market.py
-
-      # ----- Preview + run credit -----
-      - name: Preview fetch_credit.py (first 120 lines)
         run: |
-          echo "===== HEAD of src/aibps/fetch_credit.py ====="
-          if [ -f src/aibps/fetch_credit.py ]; then
-            sed -n '1,120p' src/aibps/fetch_credit.py
+          if [ -f src/aibps/fetch_market.py ] && grep -q "rename(" src/aibps/fetch_market.py; then
+            echo "::warning ::fetch_market.py contains .rename( — running fetch_market_safe.py instead"
+            python src/aibps/fetch_market_safe.py
+          elif [ -f src/aibps/fetch_market_safe.py ]; then
+            echo "Running safe market fetcher"
+            python src/aibps/fetch_market_safe.py
           else
-            echo "::error ::src/aibps/fetch_credit.py not found"
-            exit 1
+            echo "::error ::No market fetch script found"; exit 1
           fi
 
       - name: Fetch credit (FRED)
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: python src/aibps/fetch_credit.py
+        run: |
+          if [ -f src/aibps/fetch_credit.py ]; then
+            python src/aibps/fetch_credit.py
+          else
+            echo "::error ::src/aibps/fetch_credit.py not found"; exit 1
+          fi
 
       - name: Compute AIBPS
-        run: python src/aibps/compute.py
+        run: |
+          if [ -f src/aibps/compute.py ]; then
+            python src/aibps/compute.py
+          else
+            echo "::error ::src/aibps/compute.py not found"; exit 1
+          fi
 
-      # ----- Rebase-aware commit & push -----
+      # ---------- Commit/push with rebase (avoid non-fast-forward) ----------
       - name: Commit processed files
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add data/raw/*.csv data/processed/*.csv || true
+
           if git diff --cached --quiet; then
             echo "No data changes to commit."
             exit 0
           fi
+
           git fetch origin main
           git pull --rebase origin main || true
+
           git commit -m "Auto-update data ($(date -u +'%Y-%m-%dT%H:%M:%SZ'))" || true
           git push origin HEAD:main
