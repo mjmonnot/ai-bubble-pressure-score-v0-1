@@ -70,20 +70,26 @@ def main():
     df.to_csv(raw_path)
     print(f"💾 Saved raw market data → {raw_path}")
 
-    # Simple proxies: ~1y returns (252 trading days if daily; else 12 periods)
-    m = df.copy()
-    periods = 252 if (m.index.dtype.kind == "M" and m.index.freq is None) else 12
-    m["SOXX_ret_1y"] = m["SOXX"].pct_change(periods) * 100
-    m["QQQ_ret_1y"]  = m["QQQ"].pct_change(periods)  * 100
+# after you have market_df with daily closes for SOXX and QQQ
+daily = market_df.copy()
 
-    out = pd.DataFrame({
-        "MKT_SOXX_1y_pct": pct_rank(m["SOXX_ret_1y"]),
-        "MKT_QQQ_1y_pct":  pct_rank(m["QQQ_ret_1y"]),
-    }).dropna()
+# 252 trading days ~ 1Y for daily data
+ret = daily.pct_change(252) * 100
 
-    pro_path = os.path.join(PRO_DIR, "market_processed.csv")
-    out.to_csv(pro_path)
-    print(f"💾 Saved processed market data → {pro_path}")
+# resample to month-end so everything is monthly for the composite
+ret_m = ret.resample("M").last()
+
+def pct_rank(s, invert=False):
+    r = s.rank(pct=True) * 100
+    return 100 - r if invert else r
+
+out = pd.DataFrame({
+    "MKT_SOXX_1y_pct": pct_rank(ret_m["SOXX"]),
+    "MKT_QQQ_1y_pct":  pct_rank(ret_m["QQQ"]),
+}).dropna()
+
+out.to_csv(os.path.join(PRO_DIR, "market_processed.csv"))
+print("💾 Saved processed market data → data/processed/market_processed.csv")
     print(f"⏱ Done in {time.time()-start:.1f}s")
 
 if __name__ == "__main__":
