@@ -1,114 +1,95 @@
 # src/aibps/compute.py
-# Robust compute: coercion to numeric, strict month-end alignment, defensive pillar build, no stubs
+# Robust compute: monthly alignment, numeric coercion, trims rows with no pillars, ensures Market/Credit propagate
 import os, sys, time
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-PRO = os.path.join("data", "processed")
-OUT = os.path.join(PRO, "aibps_monthly.csv")
+PRO = os.path.join("data","processed")
+OUT = os.path.join(PRO,"aibps_monthly.csv")
 os.makedirs(PRO, exist_ok=True)
 
-def read_proc_csv(filename: str) -> pd.DataFrame | None:
+def read_proc(filename: str) -> pd.DataFrame | None:
     path = os.path.join(PRO, filename)
-    if not os.path.exists(path):
-        print(f"ℹ️ Missing: {path}")
-        return None
+    if not os.path.exists(path): return None
     try:
         df = pd.read_csv(path, index_col=0, parse_dates=True)
-        # Normalize index -> month-end timestamp
         if not isinstance(df.index, pd.DatetimeIndex):
             df.index = pd.to_datetime(df.index, errors="coerce")
-        df = df[~df.index.isna()].copy()
+        df = df[~df.index.isna()].sort_index()
+        # Coerce all columns numeric to kill stray strings
+        for c in df.columns: df[c] = pd.to_numeric(df[c], errors="coerce")
+        # snap to month-end grid
         df.index = df.index.to_period("M").to_timestamp("M")
-        # Coerce all columns to numeric (non-numeric -> NaN), drop all-NaN columns
-        for c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-        df = df.dropna(axis=1, how="all").sort_index()
         return df
     except Exception as e:
-        print(f"⚠️ Failed to read {path}: {e}")
+        print(f"⚠️ read_proc failed for {filename}: {e}")
         return None
 
-def build_market(market_df: pd.DataFrame | None) -> pd.DataFrame | None:
-    if market_df is None or market_df.empty:
-        return None
-    # Prefer engineered columns beginning with MKT_
-    mcols = [c for c in market_df.columns if c.startswith("MKT_")]
+def build_market(market: pd.DataFrame | None) -> pd.DataFrame | None:
+    if market is None or market.empty: return None
+    mcols = [c for c in market.columns if c.startswith("MKT_")]
     if not mcols:
-        # fallback: use any numeric columns available
-        mcols = [c for c in market_df.columns if pd.api.types.is_numeric_dtype(market_df[c])]
-    if not mcols:
-        return None
-    ser = market_df[mcols].mean(axis=1, skipna=True)
+        mcols = [c for c in market.columns if pd.api.types.is_numeric_dtype(market[c])]
+    if not mcols: return None
+    ser = market[mcols].mean(axis=1, skipna=True)
     return ser.to_frame("Market")
 
-def build_credit(credit_df: pd.DataFrame | None) -> pd.DataFrame | None:
-    if credit_df is None or credit_df.empty:
-        return None
-    ccols = [c for c in credit_df.columns if c.endswith("_pct")]
+def build_credit(credit: pd.DataFrame | None) -> pd.DataFrame | None:
+    if credit is None or credit.empty: return None
+    ccols = [c for c in credit.columns if c.endswith("_pct")]
     if not ccols:
-        ccols = [c for c in credit_df.columns if pd.api.types.is_numeric_dtype(credit_df[c])]
-    if not ccols:
-        return None
-    ser = credit_df[ccols].mean(axis=1, skipna=True)
+        ccols = [c for c in credit.columns if pd.api.types.is_numeric_dtype(credit[c])]
+    if not ccols: return None
+    ser = credit[ccols].mean(axis=1, skipna=True)
     return ser.to_frame("Credit")
 
-def keep_col(df: pd.DataFrame | None, name: str) -> pd.DataFrame | None:
-    if df is None or df.empty:
-        return None
-    return df[[name]] if name in df.columns else None
+def keep_one(df: pd.DataFrame | None, name: str) -> pd.DataFrame | None:
+    if df is None or df.empty or name not in df.columns: return None
+    return df[[name]]
 
 def main():
     t0 = time.time()
 
-    market = read_proc_csv("market_processed.csv")
-    credit = read_proc_csv("credit_fred_processed.csv")
-    capex  = read_proc_csv("capex_processed.csv")
-    infra  = read_proc_csv("infra_processed.csv")
-    adopt  = read_proc_csv("adoption_processed.csv")
+    mkt = read_proc("market_processed.csv")
+    crd = read_proc("credit_fred_processed.csv")
+    cap = read_proc("capex_processed.csv")
+    inf = read_proc("infra_processed.csv")
+    adp = read_proc("adoption_processed.csv")
 
-    pillars = []
+    parts = []
+    mk = build_market(mkt);    cr = build_credit(crd)
+    if mk is not None: parts.append(mk)
+    if cr is not None: parts.append(cr)
+    if (cx:=keep_one(cap,"Capex_Supply")) is not None: parts.append(cx)
+    if (ir:=keep_one(inf,"Infra")) is not None: parts.append(ir)
+    if (ap:=keep_one(adp,"Adoption")) is not None: parts.append(ap)
 
-    mk = build_market(market)
-    if mk is not None:
-        pillars.append(mk)
+    if not parts:
+        raise RuntimeError("No pillar inputs found in data/processed/")
 
-    cr = build_credit(credit)
-    if cr is not None:
-        pillars.append(cr)
+    # Outer join across month-end; then drop rows where ALL pillars are NaN
+    df = pd.concat(parts, axis=1, join="outer").sort_index()
+    df = df[~df.index.duplicated(keep="last")]
+    df = df.loc[~df[pd.Index(df.columns)].isna().all(axis=1)]
 
-    cx = keep_col(capex, "Capex_Supply")
-    if cx is not None: pillars.append(cx)
+    # (Optional) also drop rows where BOTH Market and Credit are NaN (keeps rows only if at least one exists)
+    core = [c for c in ["Market","Credit"] if c in df.columns]
+    if core:
+        df = df.loc[~df[core].isna().all(axis=1)]
 
-    inf = keep_col(infra, "Infra")
-    if inf is not None: pillars.append(inf)
-
-    adp = keep_col(adopt, "Adoption")
-    if adp is not None: pillars.append(adp)
-
-    if not pillars:
-        raise RuntimeError("No pillar inputs found in data/processed/. Ensure market/credit processed CSVs exist.")
-
-    # Outer-join across all month-ends, ensure monthly frequency
-    df = pd.concat(pillars, axis=1, join="outer").sort_index()
-    df = df[~df.index.duplicated(keep="last")].asfreq("M")  # keep month-end grid
-
-    # Default weights (app will recalc interactively; this is just reference)
+    # Static reference composite (app recomputes interactively anyway)
     desired  = ["Market","Capex_Supply","Infra","Adoption","Credit"]
     present  = [p for p in desired if p in df.columns]
     defaults = {"Market":0.25,"Capex_Supply":0.25,"Infra":0.20,"Adoption":0.15,"Credit":0.15}
     w = np.array([defaults[p] for p in present], dtype=float)
     w = w / w.sum() if w.sum() else np.ones(len(present))/len(present)
-
     df["AIBPS"] = (df[present] * w).sum(axis=1, skipna=True)
     df["AIBPS_RA"] = df["AIBPS"].rolling(3, min_periods=1).mean()
 
-    # Print quick sanity before writing
-    print("---- Sanity (tails) ----")
-    for col in ["Market","Credit","Capex_Supply","Infra","Adoption","AIBPS","AIBPS_RA"]:
-        if col in df.columns:
-            print(col, "tail:")
-            print(df[col].tail(3))
+    # Sanity print
+    print("---- tails (Market/Credit/AIBPS) ----")
+    for col in [c for c in ["Market","Credit","AIBPS","AIBPS_RA"] if c in df.columns]:
+        print(col); print(df[col].tail(6))
 
     df.to_csv(OUT)
     print(f"💾 Wrote {OUT} with pillars: {present} (rows={len(df)})")
