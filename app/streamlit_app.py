@@ -167,41 +167,39 @@ else:
 
     # Optional bands
     if show_bands:
-bands_df = pd.DataFrame([
-    {"label": "Critical (>85)",   "y_start": 85, "y_end": 100, "start": start_date, "end": end_date},
-    {"label": "Elevated (70–85)", "y_start": 70, "y_end": 85,  "start": start_date, "end": end_date},
-    {"label": "Rising (50–70)",   "y_start": 50, "y_end": 70,  "start": start_date, "end": end_date},
-    {"label": "Watch (<50)",      "y_start": 0,  "y_end": 50,  "start": start_date, "end": end_date},
-])
+    bands_df = pd.DataFrame([
+        {"label": "Critical (>85)", "y_start": 85, "y_end": 100, "start": start_date, "end": end_date},
+        {"label": "Elevated (70–85)", "y_start": 70, "y_end": 85, "start": start_date, "end": end_date},
+        {"label": "Rising (50–70)", "y_start": 50, "y_end": 70, "start": start_date, "end": end_date},
+        {"label": "Watch (<50)", "y_start": 0, "y_end": 50, "start": start_date, "end": end_date},
+    ])
+    band_colors = ["#b7e3b1", "#fde28a", "#f7b267", "#f08080"]
 
-# Reordered so that green (low) appears at the bottom, red (high) at the top
-band_colors = ["#b7e3b1", "#fde28a", "#f7b267", "#f08080"]
-
-bands = (
-    alt.Chart(bands_df)
-    .mark_rect(opacity=float(band_opacity))
-    .encode(
-        x="start:T",
-        x2="end:T",
-        y="y_start:Q",
-        y2="y_end:Q",
-        color=alt.Color(
-            "label:N",
-            # Explicit domain ensures proper ordering + legend control
-            scale=alt.Scale(
-                domain=["Watch (<50)", "Rising (50–70)", "Elevated (70–85)", "Critical (>85)"],
-                range=["#b7e3b1", "#fde28a", "#f7b267", "#f08080"]
+    bands = (
+        alt.Chart(bands_df)
+        .mark_rect(opacity=float(band_opacity))
+        .encode(
+            x="start:T",
+            x2="end:T",
+            y="y_start:Q",
+            y2="y_end:Q",
+            color=alt.Color(
+                "label:N",
+                scale=alt.Scale(
+                    domain=["Watch (<50)", "Rising (50–70)", "Elevated (70–85)", "Critical (>85)"],
+                    range=band_colors,
+                ),
+                legend=alt.Legend(
+                    title="Risk Zone",
+                    orient="bottom",
+                    direction="horizontal",
+                    symbolSize=120,
+                    titleAnchor="middle",
+                ),
             ),
-            legend=alt.Legend(
-                title="Risk Zone",
-                orient="bottom",          # 👈 places legend horizontally below the chart
-                direction="horizontal",   # 👈 makes items laid out left → right
-                symbolSize=120,
-                titleAnchor="middle"
-            )
         )
     )
-)
+    layers.insert(0, bands)
 
 
     # Optional threshold rules
