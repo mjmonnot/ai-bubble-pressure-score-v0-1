@@ -128,6 +128,19 @@ jobs:
           else
             echo "infra_macro_processed.csv missing"
           fi
+      # ----- ADOPTION (manual CSV) -----
+      - name: Fetch Adoption (manual CSV)
+        run: |
+          python src/aibps/fetch_adoption.py
+
+      - name: Sanity print adoption tail
+        run: |
+          echo "---- TAIL: data/processed/adoption_processed.csv ----"
+          if [ -f data/processed/adoption_processed.csv ]; then
+            tail -n 10 data/processed/adoption_processed.csv
+          else
+            echo "adoption_processed.csv missing"
+          fi
 
       # ----- COMPUTE -----
       - name: Compute AIBPS
