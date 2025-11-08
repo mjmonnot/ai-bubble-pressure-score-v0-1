@@ -120,8 +120,16 @@ def main():
         raise RuntimeError("No pillar inputs found. Check processed CSVs in data/processed/.")
 
     # ---- Outer join all pieces on month-end index ----
-    df = pd.concat(pieces, axis=1, join="outer").sort_index()
+        df = pd.concat(pieces, axis=1, join="outer").sort_index()
     df = df[~df.index.duplicated(keep="last")]
+
+    # ---- Forward-fill Capex up to 6 months so it doesn't vanish at the tail ----
+    if "Capex_Supply" in df.columns:
+        df["Capex_Supply"] = df["Capex_Supply"].ffill(limit=6)
+    if "Capex_Supply_Manual" in df.columns:
+        df["Capex_Supply_Manual"] = df["Capex_Supply_Manual"].ffill(limit=6)
+    if "Capex_Supply_Macro" in df.columns:
+        df["Capex_Supply_Macro"] = df["Capex_Supply_Macro"].ffill(limit=6)
 
     # Drop rows where *all* main pillars are NaN
     main_pillars = [c for c in ["Market", "Capex_Supply", "Credit", "Infra", "Adoption"] if c in df.columns]
@@ -131,6 +139,7 @@ def main():
     core = [c for c in ["Market", "Credit"] if c in df.columns]
     if core:
         df = df.loc[~df[core].isna().all(axis=1)]
+
 
     # ---- Static composite (baseline; app will recompute with custom weights) ----
     desired  = ["Market", "Capex_Supply", "Infra", "Adoption", "Credit"]
