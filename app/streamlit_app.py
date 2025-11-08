@@ -1,15 +1,12 @@
-# app/streamlit_app.py
 # ============================================================
-# AIBPS — Streamlit App (Full Replacement, Single Source of Truth)
-# - Pillar-aware weights (only one weights section)
-# - Robust composite calc with per-row weight renormalization
-# - Composite chart with correct bands (green→yellow→orange→red),
-#   horizontal legend, dynamic status badge, and tooltips
-# - Weighted contributions bar for latest period
-# - Debug expanders for quick sanity checks
+# AIBPS — Streamlit App Header (drop-in)
+# - imports + page config
+# - load processed data (df)
+# - define freshness_badge() and gh_meta_badge()
+# - show them in a sidebar expander (not on main page)
+# Paste this at the TOP of app/streamlit_app.py
 # ============================================================
-
-import os, time
+import os, time, json
 import numpy as np
 import pandas as pd
 import altair as alt
@@ -22,19 +19,75 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------- Load processed composite ----------
+# ---------- Paths ----------
 PROC_PATH = os.path.join("data", "processed", "aibps_monthly.csv")
+META_PATH = os.path.join("data", "processed", "metadata.json")
+
+# ---------- Load processed composite ----------
 if not os.path.exists(PROC_PATH):
     st.error("Processed file not found: data/processed/aibps_monthly.csv")
     st.stop()
 
 df = pd.read_csv(PROC_PATH, index_col=0, parse_dates=True).sort_index()
 
-# ---- Sidebar status panel (replaces any top-of-page badges) ----
+# ---------- Badges (functions defined BEFORE any calls) ----------
+def freshness_badge(path: str):
+    """Small colored chip indicating how recently the processed CSV was updated."""
+    try:
+        mtime = os.path.getmtime(path)
+    except Exception:
+        st.warning("Freshness: unknown (file not found)")
+        return
+    age_hours = (time.time() - mtime) / 3600.0
+
+    if age_hours < 6:
+        label, color = f"Fresh • {age_hours:.1f}h ago", "#b7e3b1"   # green
+    elif age_hours < 24:
+        label, color = f"OK • {age_hours:.1f}h ago", "#fde28a"      # yellow
+    elif age_hours < 72:
+        label, color = f"Stale • {age_hours:.1f}h ago", "#f7b267"   # orange
+    else:
+        label, color = f"Stale • {age_hours/24:.1f}d ago", "#f08080" # red
+
+    st.markdown(
+        f"""<div style="display:inline-block;padding:8px 12px;border-radius:12px;
+                        background:{color};color:#222;font-weight:600;margin:2px 0;">
+               Data freshness: {label}
+            </div>""",
+        unsafe_allow_html=True
+    )
+
+def gh_meta_badge(path: str):
+    """Clickable badge showing last GitHub Actions run (if metadata.json exists)."""
+    try:
+        with open(path, "r") as f:
+            meta = json.load(f)
+    except Exception:
+        st.info("Build metadata not available yet.")
+        return
+
+    run_num = meta.get("github_run_number")
+    sha = (meta.get("github_sha") or "")[:7]
+    ref = meta.get("github_ref") or ""        # expect 'main'
+    updated = meta.get("updated_at_utc") or ""
+    run_url = meta.get("github_run_url")
+
+    html = f"""<div style="display:inline-block;padding:6px 10px;border-radius:10px;
+                         background:#eef2ff;color:#222;font-weight:600;margin:2px 0;">
+                 Build: #{run_num} • <span style="font-family:Menlo,Consolas,monospace;">{sha}</span>
+                 <span style="font-weight:400;">@ {ref}</span>
+                 <span style="font-weight:400;">• {updated}</span>
+               </div>"""
+    if run_url:
+        html = f'<a href="{run_url}" target="_blank" style="text-decoration:none;">{html}</a>'
+    st.markdown(html, unsafe_allow_html=True)
+
+# ---------- Sidebar: status panel (kept out of main page) ----------
 with st.sidebar.expander("Dataset status", expanded=False):
     freshness_badge(PROC_PATH)
-    gh_meta_badge(META_PATH)  # clickable build badge (link to Actions run)
+    gh_meta_badge(META_PATH)
 
+# (Your existing code continues below… e.g., pillar detection, weights UI, charts)
 
 # ---------- Identify pillars present ----------
 DESIRED = ["Market", "Capex_Supply", "Infra", "Adoption", "Credit"]
