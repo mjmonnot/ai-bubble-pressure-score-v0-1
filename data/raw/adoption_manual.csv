@@ -1,0 +1,17 @@
+date,segment,metric,value,unit,notes
+2017-12-31,enterprise,ai_usage_index,10,index,Early ML/AI deployments
+2017-12-31,consumer,ai_usage_index,8,index,Early voice assistants
+2018-12-31,enterprise,ai_usage_index,15,index,More ML in production
+2018-12-31,consumer,ai_usage_index,12,index,More recommendation engines
+2019-12-31,enterprise,ai_usage_index,20,index,Cloud AI services adoption
+2019-12-31,consumer,ai_usage_index,18,index,Better recsys, CV/voice
+2020-12-31,enterprise,ai_usage_index,28,index,COVID + automation interest
+2020-12-31,consumer,ai_usage_index,25,index,More AI in apps/services
+2021-12-31,enterprise,ai_usage_index,35,index,AI feature expansion
+2021-12-31,consumer,ai_usage_index,32,index,AI widespread in products
+2022-12-31,enterprise,ai_usage_index,45,index,Pre-GenAI hype
+2022-12-31,consumer,ai_usage_index,40,index,More visible AI features
+2023-12-31,enterprise,ai_usage_index,70,index,GenAI pilots & tools
+2023-12-31,consumer,ai_usage_index,65,index,Chatbots & copilots
+2024-03-31,enterprise,ai_usage_index,75,index,GenAI in workflows
+2024-03-31,consumer,ai_usage_index,68,index,GenAI in consumer apps
