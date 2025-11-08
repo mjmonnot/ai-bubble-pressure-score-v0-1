@@ -1,0 +1,17 @@
+date,segment,metric,value,unit,notes
+2017-12-31,datacenter,construction_spend_usd,2000000000,USD,Approx DC construction
+2017-12-31,power,construction_spend_usd,1500000000,USD,Grid/power for compute
+2018-12-31,datacenter,construction_spend_usd,2600000000,USD,Ramp in DC builds
+2018-12-31,power,construction_spend_usd,1800000000,USD,Ramp in power infra
+2019-12-31,datacenter,construction_spend_usd,3200000000,USD,Pre-AI cloud buildout
+2019-12-31,power,construction_spend_usd,2100000000,USD,Pre-AI grid upgrades
+2020-12-31,datacenter,construction_spend_usd,3800000000,USD,COVID + cloud demand
+2020-12-31,power,construction_spend_usd,2500000000,USD,COVID + data infra
+2021-12-31,datacenter,construction_spend_usd,4500000000,USD,AI infrastructure ramp
+2021-12-31,power,construction_spend_usd,3000000000,USD,AI-related power projects
+2022-12-31,datacenter,construction_spend_usd,6000000000,USD,GenAI/DC boom
+2022-12-31,power,construction_spend_usd,4200000000,USD,Grid updates for AI
+2023-12-31,datacenter,construction_spend_usd,8000000000,USD,Peak AI/DC buildout
+2023-12-31,power,construction_spend_usd,5500000000,USD,Peak AI-driven grid spend
+2024-03-31,datacenter,construction_spend_usd,2100000000,USD,Quarter update
+2024-03-31,power,construction_spend_usd,1500000000,USD,Quarter update
