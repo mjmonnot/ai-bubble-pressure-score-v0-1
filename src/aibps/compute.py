@@ -1,8 +1,9 @@
 # src/aibps/compute.py
 # Robust compute for AIBPS:
-# - Reads processed pillars from data/processed/
+# - Reads processed pillar inputs from data/processed/
 # - Builds Market, Credit, Capex_Supply (manual + macro blend)
-# - Keeps component columns for debugging
+# - Forward-fills Capex up to 6 months so it doesn't disappear at the tail
+# - Keeps Capex_Supply_Manual / Capex_Supply_Macro for debugging
 # - Writes data/processed/aibps_monthly.csv
 
 import os, sys, time
@@ -23,9 +24,10 @@ def read_proc(filename: str) -> pd.DataFrame | None:
         if not isinstance(df.index, pd.DatetimeIndex):
             df.index = pd.to_datetime(df.index, errors="coerce")
         df = df[~df.index.isna()].sort_index()
+        # Coerce numeric
         for c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
-        # Normalize to month-end stamps
+        # Normalize to month-end
         df.index = df.index.to_period("M").to_timestamp("M")
         return df
     except Exception as e:
@@ -57,10 +59,10 @@ def build_credit(crd: pd.DataFrame | None) -> pd.DataFrame | None:
 def main():
     t0 = time.time()
 
-    # ---- Load all processed sources ----
+    # ---- Load processed sources (optional ones may be missing) ----
     mkt   = read_proc("market_processed.csv")
     crd   = read_proc("credit_fred_processed.csv")
-    cap   = read_proc("capex_processed.csv")          # manual/corp
+    cap   = read_proc("capex_processed.csv")          # manual / corporate
     capM  = read_proc("macro_capex_processed.csv")    # macro FRED
     infra = read_proc("infra_processed.csv")
     adop  = read_proc("adoption_processed.csv")
@@ -83,7 +85,6 @@ def main():
     cap_macro  = None
 
     if cap is not None:
-        # Expect column "Capex_Supply"
         if "Capex_Supply" in cap.columns:
             cap_manual = cap["Capex_Supply"].rename("Capex_Supply_Manual")
             cap_sources.append(cap_manual.rename("Capex_Supply"))
@@ -91,7 +92,6 @@ def main():
             print(f"ℹ️ capex_processed.csv columns: {list(cap.columns)}")
 
     if capM is not None:
-        # Expect column "Capex_Supply_Macro"
         if "Capex_Supply_Macro" in capM.columns:
             cap_macro = capM["Capex_Supply_Macro"].rename("Capex_Supply_Macro")
             cap_sources.append(cap_macro.rename("Capex_Supply"))
@@ -99,15 +99,17 @@ def main():
             print(f"ℹ️ macro_capex_processed.csv columns: {list(capM.columns)}")
 
     if cap_sources:
-        # Align all on a common index and average
-        cap_blend = pd.concat(cap_sources, axis=1).mean(axis=1, skipna=True).to_frame("Capex_Supply")
-        # Keep components too, for debugging in the app
-        cap_cols = []
+        cap_blend = (
+            pd.concat(cap_sources, axis=1)
+            .mean(axis=1, skipna=True)
+            .to_frame("Capex_Supply")
+        )
+        cap_cols = [cap_blend]
         if cap_manual is not None:
             cap_cols.append(cap_manual.to_frame())
         if cap_macro is not None:
             cap_cols.append(cap_macro.to_frame())
-        cap_full = pd.concat([cap_blend] + cap_cols, axis=1)
+        cap_full = pd.concat(cap_cols, axis=1)
         pieces.append(cap_full)
 
     # ---- Optional Infra & Adoption pillars ----
@@ -119,8 +121,8 @@ def main():
     if not pieces:
         raise RuntimeError("No pillar inputs found. Check processed CSVs in data/processed/.")
 
-    # ---- Outer join all pieces on month-end index ----
-        df = pd.concat(pieces, axis=1, join="outer").sort_index()
+    # ---- Join all pieces on month-end index ----
+    df = pd.concat(pieces, axis=1, join="outer").sort_index()
     df = df[~df.index.duplicated(keep="last")]
 
     # ---- Forward-fill Capex up to 6 months so it doesn't vanish at the tail ----
@@ -131,17 +133,17 @@ def main():
     if "Capex_Supply_Macro" in df.columns:
         df["Capex_Supply_Macro"] = df["Capex_Supply_Macro"].ffill(limit=6)
 
-    # Drop rows where *all* main pillars are NaN
+    # ---- Drop rows where all main pillars are NaN ----
     main_pillars = [c for c in ["Market", "Capex_Supply", "Credit", "Infra", "Adoption"] if c in df.columns]
-    df = df.loc[~df[main_pillars].isna().all(axis=1)]
+    if main_pillars:
+        df = df.loc[~df[main_pillars].isna().all(axis=1)]
 
-    # Also, don't keep rows where BOTH Market and Credit are missing
+    # Also drop rows where BOTH Market and Credit are missing
     core = [c for c in ["Market", "Credit"] if c in df.columns]
     if core:
         df = df.loc[~df[core].isna().all(axis=1)]
 
-
-    # ---- Static composite (baseline; app will recompute with custom weights) ----
+    # ---- Static baseline composite (app recomputes with sliders) ----
     desired  = ["Market", "Capex_Supply", "Infra", "Adoption", "Credit"]
     present  = [p for p in desired if p in df.columns]
     defaults = {"Market":0.25, "Capex_Supply":0.25, "Infra":0.20, "Adoption":0.15, "Credit":0.15}
@@ -154,7 +156,7 @@ def main():
     # ---- Sanity prints ----
     print("---- Columns in composite ----")
     print(list(df.columns))
-    print("---- Tail (Market / Capex_Supply / Credit / AIBPS_RA) ----")
+    print("---- Tail (Market / Capex_Supply / components / Credit / AIBPS_RA) ----")
     for col in [c for c in ["Market","Capex_Supply","Capex_Supply_Manual","Capex_Supply_Macro","Credit","AIBPS","AIBPS_RA"] if c in df.columns]:
         print(f"{col}:")
         print(df[col].tail(6))
