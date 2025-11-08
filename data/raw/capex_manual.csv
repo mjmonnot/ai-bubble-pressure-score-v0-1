@@ -1,5 +1,29 @@
 date,company,metric,value,unit,notes
-2024-12-31,TSMC,ai_dc_capex_usd,12000000000,USD,Est AI-related
-2024-12-31,MSFT,ai_dc_capex_usd,11000000000,USD,Company guidance
-2025-03-31,TSMC,ai_dc_capex_usd,12500000000,USD,Quarterly update
-2025-03-31,MSFT,ai_dc_capex_usd,11800000000,USD,Quarterly update
+2017-12-31,MSFT,ai_dc_capex_usd,3000000000,USD,Approx DC/Cloud capex
+2017-12-31,AMZN,ai_dc_capex_usd,3500000000,USD,Approx AWS/DC capex
+2017-12-31,GOOG,ai_dc_capex_usd,2500000000,USD,Approx Google DC capex
+2018-12-31,MSFT,ai_dc_capex_usd,4500000000,USD,Steady ramp
+2018-12-31,AMZN,ai_dc_capex_usd,5200000000,USD,Steady ramp
+2018-12-31,GOOG,ai_dc_capex_usd,4000000000,USD,Steady ramp
+2019-12-31,MSFT,ai_dc_capex_usd,6000000000,USD,Ramping Cloud/AI infra
+2019-12-31,AMZN,ai_dc_capex_usd,7000000000,USD,Ramping AWS infra
+2019-12-31,GOOG,ai_dc_capex_usd,5500000000,USD,Ramping DC infra
+2020-12-31,MSFT,ai_dc_capex_usd,8000000000,USD,COVID + cloud surge
+2020-12-31,AMZN,ai_dc_capex_usd,9000000000,USD,COVID + ecom + cloud
+2020-12-31,GOOG,ai_dc_capex_usd,7500000000,USD,COVID + cloud
+2021-12-31,MSFT,ai_dc_capex_usd,10000000000,USD,AI & cloud expansion
+2021-12-31,AMZN,ai_dc_capex_usd,11000000000,USD,AI & cloud expansion
+2021-12-31,GOOG,ai_dc_capex_usd,9500000000,USD,AI & cloud expansion
+2022-12-31,MSFT,ai_dc_capex_usd,13000000000,USD,AI/DC heavy buildout
+2022-12-31,AMZN,ai_dc_capex_usd,14500000000,USD,AI/DC heavy buildout
+2022-12-31,GOOG,ai_dc_capex_usd,12500000000,USD,AI/DC heavy buildout
+2023-12-31,MSFT,ai_dc_capex_usd,18000000000,USD,GenAI acceleration
+2023-12-31,AMZN,ai_dc_capex_usd,19000000000,USD,GenAI acceleration
+2023-12-31,GOOG,ai_dc_capex_usd,17500000000,USD,GenAI acceleration
+2023-12-31,TSM,ai_dc_capex_usd,32000000000,USD,AI node fab ramp
+2023-12-31,NVDA,ai_dc_capex_usd,2500000000,USD,AI infra + plants
+2024-03-31,MSFT,ai_dc_capex_usd,5000000000,USD,Quarterly update
+2024-03-31,AMZN,ai_dc_capex_usd,5200000000,USD,Quarterly update
+2024-03-31,GOOG,ai_dc_capex_usd,4800000000,USD,Quarterly update
+2024-03-31,TSM,ai_dc_capex_usd,8000000000,USD,Quarterly node spend
+2024-03-31,NVDA,ai_dc_capex_usd,700000000,USD,Quarterly infra spend
