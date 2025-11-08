@@ -113,6 +113,21 @@ jobs:
             echo "infra_processed.csv missing"
           fi
 
+      # ----- INFRA MACRO (FRED) -----
+      - name: Fetch Infra Macro (FRED)
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          python src/aibps/fetch_infra_macro.py
+
+      - name: Sanity print infra macro tail
+        run: |
+          echo "---- TAIL: data/processed/infra_macro_processed.csv ----"
+          if [ -f data/processed/infra_macro_processed.csv ]; then
+            tail -n 10 data/processed/infra_macro_processed.csv
+          else
+            echo "infra_macro_processed.csv missing"
+          fi
 
       # ----- COMPUTE -----
       - name: Compute AIBPS
