@@ -4,7 +4,7 @@ date,segment,metric,value,unit,notes
 2018-12-31,enterprise,ai_usage_index,15,index,More ML in production
 2018-12-31,consumer,ai_usage_index,12,index,More recommendation engines
 2019-12-31,enterprise,ai_usage_index,20,index,Cloud AI services adoption
-2019-12-31,consumer,ai_usage_index,18,index,Better recsys, CV/voice
+2019-12-31,consumer,ai_usage_index,18,index,"Better recsys, CV/voice"
 2020-12-31,enterprise,ai_usage_index,28,index,COVID + automation interest
 2020-12-31,consumer,ai_usage_index,25,index,More AI in apps/services
 2021-12-31,enterprise,ai_usage_index,35,index,AI feature expansion
