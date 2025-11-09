@@ -127,7 +127,7 @@ with st.sidebar.expander("Capex breakdown (macro vs manual)", expanded=True):
 # (Your existing code continues below… e.g., pillar detection, weights UI, charts)
 
 # ---------- Identify pillars present ----------
-DESIRED = ["Market", "Capex_Supply", "Infra", "Adoption", "Credit"]
+DESIRED = ["Market", "Capex_Supply", "Infra", "Adoption", "Sentiment", "Credit"]
 present_pillars = [p for p in DESIRED if p in df.columns]
 
 if not present_pillars:
