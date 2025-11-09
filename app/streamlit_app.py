@@ -281,7 +281,6 @@ pillars_lines = (
 thresholds = pd.DataFrame(
     {
         "level": [40, 60, 80],
-        "label": ["Calm → Normal-ish", "Normal-ish → Elevated", "Elevated → Extreme"],
     }
 )
 
@@ -291,21 +290,6 @@ rules = (
     .encode(y="level:Q")
 )
 
-# Use the earliest date in the data so labels sit near the left edge of the plot
-min_date = comp_df["date"].min()
-thresholds_with_x = thresholds.copy()
-thresholds_with_x["date"] = min_date
-
-labels = (
-    alt.Chart(thresholds_with_x)
-    .mark_text(align="left", dx=5, dy=-2, color="gray")
-    .encode(
-        x=alt.X("date:T", title=""),
-        y="level:Q",
-        text="label:N",
-    )
-)
-
 
 st.subheader("Composite over time")
 
@@ -313,15 +297,16 @@ main_chart = (
     comp_line
     + pillars_lines
     + rules
-    + labels
 ).properties(height=400)
+
 
 st.altair_chart(main_chart, use_container_width=True)
 
 
 st.caption(
-    "Solid line: composite AIBPS. Dashed lines: individual pillars (0–100 percentile). "
-    "Regime bands are implied by the scale: 0–40 Calm, 40–60 Normal-ish, 60–80 Elevated, 80–100 Extreme."
+    "Solid line: composite AIBPS. Dashed lines: individual pillars (0–100 percentile).\n"
+    "Horizontal dashed lines show regime thresholds: 0–40 Calm, 40–60 Normal-ish, "
+    "60–80 Elevated, 80–100 Extreme."
 )
 
 
