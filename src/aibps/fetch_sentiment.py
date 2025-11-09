@@ -1,101 +1,78 @@
-# src/aibps/fetch_sentiment.py
-# Sentiment / Valuation pillar (manual / curated):
-# - Reads data/raw/sentiment_manual.csv
-# - Aggregates to monthly
-# - Computes rolling/expanding percentile (0–100)
-# - Writes data/processed/sentiment_processed.csv with column "Sentiment"
+# src/aibps/fetch_sentiment_trends.py
+# Sentiment / AI Hype pillar via Google Trends
+# - Uses pytrends to fetch search interest for AI-related terms
+# - Aggregates monthly and normalizes 0–100
+# - Outputs data/processed/sentiment_processed.csv with column "Sentiment"
 
-import os, sys, time
+import os
+import sys
+import time
 import pandas as pd
 import numpy as np
+from pytrends.request import TrendReq
 
-RAW = os.path.join("data", "raw", "sentiment_manual.csv")
 OUT = os.path.join("data", "processed", "sentiment_processed.csv")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
-
-def _expanding_pct(series: pd.Series) -> pd.Series:
-    out = []
-    vals = series.values
-    for i in range(len(vals)):
-        s = pd.Series(vals[: i + 1])
-        out.append(float(s.rank(pct=True).iloc[-1] * 100.0))
-    return pd.Series(out, index=series.index)
-
-
-def rolling_pct_rank_flexible(series: pd.Series, window: int = 120) -> pd.Series:
-    """
-    For shorter histories: expanding percentile.
-    For longer histories: rolling window percentile.
-    """
-    series = series.dropna()
-    n = len(series)
-    if n == 0:
-        return series
-    if n < 24:
-        return _expanding_pct(series)
-
-    def _rank_last(x):
-        s = pd.Series(x)
-        return float(s.rank(pct=True).iloc[-1] * 100.0)
-
-    minp = max(24, window // 4)
-    return series.rolling(window, min_periods=minp).apply(_rank_last, raw=False)
-
+# Core AI search terms to track
+TERMS = ["artificial intelligence", "chatgpt", "openai", "generative ai", "machine learning"]
 
 def main():
     t0 = time.time()
-    if not os.path.exists(RAW):
-        print(f"ℹ️ {RAW} not found. Writing header only.")
-        pd.DataFrame(columns=["Sentiment"]).to_csv(OUT)
-        return
-
     try:
-        # python engine is tolerant of commas in notes
-        df = pd.read_csv(RAW, engine="python")
+        pytrends = TrendReq(hl="en-US", tz=360)
     except Exception as e:
-        print(f"❌ Failed to read {RAW}: {e}")
-        pd.DataFrame(columns=["Sentiment"]).to_csv(OUT)
+        print(f"❌ pytrends init failed: {e}")
         sys.exit(1)
 
-    # Expect at least date + value
-    if "date" not in df.columns or "value" not in df.columns:
-        raise ValueError("sentiment_manual.csv must include 'date' and 'value' columns.")
+    dfs = []
+    for term in TERMS:
+        try:
+            pytrends.build_payload([term], timeframe="2015-01-01 2025-12-31", geo="")
+            df = pytrends.interest_over_time()
+            if not df.empty and term in df.columns:
+                s = df[term].rename(term)
+                dfs.append(s)
+                print(f"Fetched {len(s)} monthly points for {term}")
+            else:
+                print(f"⚠️ No data for {term}")
+        except Exception as e:
+            print(f"⚠️ pytrends failed for {term}: {e}")
 
-    # Parse dates
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[~df["date"].isna()].copy()
-    # Snap to month-end
-    df["date"] = df["date"].dt.to_period("M").dt.to_timestamp("M")
-
-    # Numeric value
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df[~df["value"].isna()].copy()
-
-    if df.empty:
-        print("ℹ️ sentiment_manual.csv produced no valid rows after cleaning.")
+    if not dfs:
+        print("⚠️ No trends fetched; writing empty sentiment_processed.csv")
         pd.DataFrame(columns=["Sentiment"]).to_csv(OUT)
         return
 
-    # Monthly aggregate (if you later split segments/metrics, they’ll sum here)
-    monthly = df.groupby("date")["value"].sum().sort_index()
+    df_all = pd.concat(dfs, axis=1)
+    df_all.index = pd.to_datetime(df_all.index)
+    df_all = df_all.resample("M").mean()  # monthly mean interest
+    df_all.index.name = "date"
 
-    # Percentile transform
-    sent_pct = rolling_pct_rank_flexible(monthly, window=120)
-    sent_pct.index.name = "date"
+    # Aggregate across terms
+    df_all["hype_mean"] = df_all.mean(axis=1, skipna=True)
 
-    out = pd.DataFrame({"Sentiment": sent_pct}).dropna(how="all")
+    # Percentile (0–100) relative to full history
+    def expanding_pct(series):
+        vals = []
+        for i in range(len(series)):
+            vals.append(series[: i + 1].rank(pct=True).iloc[-1] * 100)
+        return pd.Series(vals, index=series.index)
+
+    s = expanding_pct(df_all["hype_mean"]).clip(1, 99)
+    s.name = "Sentiment"
+
+    out = pd.DataFrame({"Sentiment": s}).dropna()
     out.to_csv(OUT)
 
-    print(f"💾 Wrote {OUT} ({len(out)} rows)")
+    print(f"💾 Wrote {OUT} ({len(out)} rows) using Google Trends")
     print("Tail:")
     print(out.tail(6))
-    print(f"⏱  Done in {time.time() - t0:.2f}s")
-
+    print(f"⏱ Done in {time.time() - t0:.2f}s")
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"❌ fetch_sentiment.py: {e}")
+        print(f"❌ fetch_sentiment_trends.py: {e}")
         sys.exit(1)
