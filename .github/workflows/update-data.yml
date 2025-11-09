@@ -141,6 +141,21 @@ jobs:
           else
             echo "adoption_processed.csv missing"
           fi
+     
+      # ----- SENTIMENT (manual CSV) -----
+      - name: Fetch Sentiment (manual CSV)
+        run: |
+          python src/aibps/fetch_sentiment.py
+
+      - name: Sanity print sentiment tail
+        run: |
+          echo "---- TAIL: data/processed/sentiment_processed.csv ----"
+          if [ -f data/processed/sentiment_processed.csv ]; then
+            tail -n 10 data/processed/sentiment_processed.csv
+          else
+            echo "sentiment_processed.csv missing"
+          fi
+
 
       # ----- COMPUTE -----
       - name: Compute AIBPS
