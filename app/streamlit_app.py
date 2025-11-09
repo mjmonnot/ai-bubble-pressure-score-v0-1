@@ -277,17 +277,41 @@ pillars_lines = (
     )
 )
 
+# Regime threshold lines at 40 / 60 / 80
+thresholds = pd.DataFrame(
+    {
+        "level": [40, 60, 80],
+        "label": ["Calm → Normal-ish", "Normal-ish → Elevated", "Elevated → Extreme"],
+    }
+)
+
+rules = (
+    alt.Chart(thresholds)
+    .mark_rule(strokeDash=[3, 3], color="gray")
+    .encode(y="level:Q")
+)
+
+labels = (
+    alt.Chart(thresholds)
+    .mark_text(align="left", dx=5, dy=-2, color="gray")
+    .encode(
+        y="level:Q",
+        x=alt.value(0),  # left side of chart
+        text="label:N",
+    )
+)
+
 st.subheader("Composite over time")
 
-# We can't directly stretch the rects over x in Altair without some tricks;
-# Instead, we'll skip the rect chart and emulate bands with rules + background sense,
-# but to keep it simple, we focus on composite + pillar lines for now.
 main_chart = (
     comp_line
     + pillars_lines
+    + rules
+    + labels
 ).properties(height=400)
 
 st.altair_chart(main_chart, use_container_width=True)
+
 
 st.caption(
     "Solid line: composite AIBPS. Dashed lines: individual pillars (0–100 percentile). "
