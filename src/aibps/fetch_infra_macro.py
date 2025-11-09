@@ -1,112 +1,118 @@
 # src/aibps/fetch_infra_macro.py
-# Macro Infra pillar via FRED:
-# - Pulls 1–2 construction-related series from FRED
-# - Converts to monthly
-# - Uses YoY % change of a smoothed series
-# - Outputs 0–100 percentile as "Infra_Macro" in data/processed/infra_macro_processed.csv
+# Macro Infra pillar (real data via FRED)
+# - Uses Total Private Construction Spending on Power and Communication.
+# - Computes combined level and turns it into 0–100 percentile.
+# - Outputs data/processed/infra_macro_processed.csv with column "Infra_Macro".
 
-import os, sys, time
+import os
+import sys
+import time
 import pandas as pd
 import numpy as np
+
+from fredapi import Fred
 
 OUT = os.path.join("data", "processed", "infra_macro_processed.csv")
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
+# FRED series IDs (monthly, SAAR, millions) :
+# Power:        PRPWRCONS
+# Communication: PRCMUCONS
+POWER_SERIES = "PRPWRCONS"
+COMM_SERIES = "PRCMUCONS"
+
+
 def _expanding_pct(series: pd.Series) -> pd.Series:
-    out = []
+    out_vals = []
     vals = series.values
     for i in range(len(vals)):
-        s = pd.Series(vals[:i+1])
-        out.append(float(s.rank(pct=True).iloc[-1] * 100.0))
-    return pd.Series(out, index=series.index)
+        s = pd.Series(vals[: i + 1])
+        out_vals.append(float(s.rank(pct=True).iloc[-1] * 100.0))
+    return pd.Series(out_vals, index=series.index)
 
-def rolling_pct_rank(series: pd.Series, window: int = 120) -> pd.Series:
+
+def rolling_pct_rank_flexible(series: pd.Series, window: int = 120) -> pd.Series:
+    """
+    For shorter histories: expanding percentile.
+    For longer histories: rolling window percentile.
+    """
     series = series.dropna()
     n = len(series)
     if n == 0:
         return series
-    if n < 36:
+    if n < 24:
         return _expanding_pct(series)
+
     def _rank_last(x):
         s = pd.Series(x)
         return float(s.rank(pct=True).iloc[-1] * 100.0)
-    return series.rolling(window, min_periods=24).apply(_rank_last, raw=False)
 
-def get_series_safely(fred, series_id: str, label: str) -> pd.Series | None:
-    try:
-        s = fred.get_series(series_id, observation_start="2010-01-01")
-        if s is None or len(s) == 0:
-            print(f"⚠️ FRED series {series_id} ({label}) returned empty.")
-            return None
-        s.index = pd.to_datetime(s.index, errors="coerce")
-        s = s[~s.index.isna()].sort_index()
-        return s
-    except Exception as e:
-        print(f"⚠️ Error fetching {series_id} ({label}): {e}")
-        return None
+    minp = max(24, window // 4)
+    return series.rolling(window, min_periods=minp).apply(_rank_last, raw=False)
+
 
 def main():
     t0 = time.time()
-    api_key = os.environ.get("FRED_API_KEY")
+    api_key = os.getenv("FRED_API_KEY")
     if not api_key:
-        print("❌ FRED_API_KEY not found. Set GitHub Secret FRED_API_KEY.")
+        print("ℹ️ FRED_API_KEY not set; writing empty infra_macro_processed.csv")
         pd.DataFrame(columns=["Infra_Macro"]).to_csv(OUT)
-        sys.exit(1)
-
-    try:
-        from fredapi import Fred
-    except Exception as e:
-        print(f"❌ fredapi not installed: {e}")
-        pd.DataFrame(columns=["Infra_Macro"]).to_csv(OUT)
-        sys.exit(1)
+        return
 
     fred = Fred(api_key=api_key)
 
-    # Example macro infra proxies (you can refine IDs later):
-    # We'll fetch 1–2 broad construction series and blend them.
-    candidates = [
-        # (series_id, label)
-        ("TTLCONS", "Total Construction Spending"),  # example ID; adjust as needed
-        # You can add a power/communication-specific series here later
-    ]
+    def get_series_safe(series_id: str) -> pd.Series | None:
+        try:
+            s = fred.get_series(series_id)
+            if s is None or s.empty:
+                print(f"ℹ️ {series_id} returned empty from FRED.")
+                return None
+            s.index = pd.to_datetime(s.index)
+            s.name = series_id
+            return s
+        except Exception as e:
+            print(f"❌ Failed to fetch {series_id} from FRED: {e}")
+            return None
 
-    series_list = []
-    for sid, label in candidates:
-        s = get_series_safely(fred, sid, label)
-        if s is not None:
-            series_list.append(s.rename(sid))
+    power = get_series_safe(POWER_SERIES)
+    comm = get_series_safe(COMM_SERIES)
 
-    if not series_list:
-        print("⚠️ No macro infra series fetched; writing header only.")
+    if power is None and comm is None:
+        print("ℹ️ No macro infra series available; writing empty file.")
         pd.DataFrame(columns=["Infra_Macro"]).to_csv(OUT)
-        sys.exit(0)
+        return
 
-    # Merge all macro infra series and build a composite level
-    macro_df = pd.concat(series_list, axis=1).sort_index()
-    level = macro_df.mean(axis=1, skipna=True)
+    df = pd.DataFrame()
+    if power is not None:
+        df["power"] = power
+    if comm is not None:
+        df["comm"] = comm
 
-    # Convert to monthly via interpolation on a month-end grid
-    start = level.index.min().to_period("M").to_timestamp("M")
-    end   = pd.Timestamp.today().to_period("M").to_timestamp("M")
-    idx_m = pd.period_range(start, end, freq="M").to_timestamp("M")
-    level_m = level.reindex(idx_m).interpolate(method="linear")
-    level_m.index.name = "date"
+    df.index.name = "date"
+    df = df.sort_index()
 
-    # Use YoY % change of a smoothed level as the signal
-    roll_12 = level_m.rolling(12, min_periods=9).mean()
-    yoy = (roll_12.pct_change(12) * 100.0).rolling(3, min_periods=1).mean()
+    # Combine: sum as a rough proxy for total power+comms infra spend
+    df["infra_level"] = df[["power", "comm"]].sum(axis=1, skipna=True)
 
-    infra_pct = rolling_pct_rank(yoy, window=120)
+    infra_level = df["infra_level"].dropna()
+    if infra_level.empty:
+        print("ℹ️ Combined infra_level empty; writing empty file.")
+        pd.DataFrame(columns=["Infra_Macro"]).to_csv(OUT)
+        return
+
+    # Percentile transform on level
+    infra_pct = rolling_pct_rank_flexible(infra_level, window=120)
     infra_pct = infra_pct.clip(1, 99)
+    infra_pct.index.name = "date"
 
     out = pd.DataFrame({"Infra_Macro": infra_pct}).dropna(how="all")
-    out.index.name = "date"
     out.to_csv(OUT)
 
-    print(f"💾 Wrote {OUT} ({len(out)} rows)")
+    print(f"💾 Wrote {OUT} ({len(out)} rows) using {POWER_SERIES} + {COMM_SERIES}")
     print("Tail:")
     print(out.tail(6))
-    print(f"⏱  Done in {time.time()-t0:.2f}s")
+    print(f"⏱ Done in {time.time() - t0:.2f}s")
+
 
 if __name__ == "__main__":
     try:
