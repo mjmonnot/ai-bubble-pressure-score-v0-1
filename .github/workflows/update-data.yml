@@ -143,9 +143,10 @@ jobs:
           fi
      
       # ----- SENTIMENT (manual CSV) -----
-      - name: Fetch Sentiment (manual CSV)
+      - name: Fetch Sentiment
         run: |
-          python src/aibps/fetch_sentiment.py
+          python src/aibps/fetch_sentiment_trends.py
+
 
       - name: Sanity print sentiment tail
         run: |
