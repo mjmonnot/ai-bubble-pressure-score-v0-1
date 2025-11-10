@@ -17,7 +17,7 @@ Use `normalize_series(series, method=..., **kwargs)` as the main entry point.
 
 from __future__ import annotations
 
-from typing import Literal, Dict, Any
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -103,7 +103,6 @@ def rolling_z(series: pd.Series, window: int = 24, min_periods: int | None = Non
     roll_std = s.rolling(window, min_periods=min_periods).std()
 
     z = (s - roll_mean) / roll_std
-    # Avoid wild inf / NaN when std ~ 0
     z = z.replace([np.inf, -np.inf], np.nan)
     return _align_output(series, z)
 
@@ -125,7 +124,6 @@ def minmax_scale_0_100(series: pd.Series, lower_quantile: float = 0.01, upper_qu
     q_high = s.quantile(upper_quantile)
 
     if q_high <= q_low:
-        # Degenerate case; return 50 for all non-null
         core = pd.Series(50.0, index=s.index)
         return _align_output(series, core)
 
@@ -166,8 +164,6 @@ def sigmoid_z(
     return _align_output(series, core)
 
 
-# ---- Dispatcher ----
-
 NormalizationMethod = Literal[
     "expanding_percentile",
     "rolling_percentile",
@@ -191,8 +187,7 @@ def normalize_series(series: pd.Series, method: NormalizationMethod = "expanding
             - "rolling_z_sigmoid" (rolling z -> logistic 0–100)
             - "minmax"
     kwargs : dict
-        Extra keyword args passed to the underlying function, e.g.:
-            window=24, lower_quantile=0.01, upper_quantile=0.99
+        Extra keyword args passed to the underlying function.
 
     Returns
     -------
