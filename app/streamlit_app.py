@@ -239,11 +239,23 @@ event_labels = (
     )
 )
 
+# Horizontal regime threshold lines at 25/50/75
+thresholds_df = pd.DataFrame({"y": [25, 50, 75]})
+
+regime_rules = (
+    alt.Chart(thresholds_df)
+    .mark_rule(strokeDash=[3, 3], color="black", opacity=0.5)
+    .encode(
+        y="y:Q",
+    )
+)
+
 composite_chart = (
-    (bands + aibps_line + event_rules + event_labels)
+    (bands + regime_rules + aibps_line + event_rules + event_labels)
     .properties(height=420)
     .interactive()
 )
+
 
 st.altair_chart(composite_chart, use_container_width=True)
 
