@@ -71,20 +71,6 @@ jobs:
             echo "capex_processed.csv missing"
           fi
 
-      - name: Fetch Macro Capex (FRED)
-        env:
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: |
-          python src/aibps/fetch_macro_capex.py
-
-      - name: Sanity print macro capex tail
-        run: |
-          echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
-          if [ -f data/processed/macro_capex_processed.csv ]; then
-            tail -n 10 data/processed/macro_capex_processed.csv
-          else
-            echo "macro_capex_processed.csv missing"
-          fi
 
       - name: Fetch credit (FRED deep)
         env:
@@ -94,6 +80,13 @@ jobs:
           echo "---- TAIL: data/processed/credit_fred_processed.csv ----"
           tail -n 10 data/processed/credit_fred_processed.csv || true
 
+      - name: List src/aibps (debug)
+        run: |
+          echo "PWD=$(pwd)"
+          ls -al
+          ls -al src || true
+          ls -al src/aibps || true
+
       - name: Fetch macro capex (PNFI + UNXANO)
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
@@ -101,6 +94,8 @@ jobs:
           python src/aibps/fetch_capex_macro.py
           echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
           tail -n 10 data/processed/macro_capex_processed.csv || true
+
+
 
 
       # ----- INFRA (manual + macro) -----
