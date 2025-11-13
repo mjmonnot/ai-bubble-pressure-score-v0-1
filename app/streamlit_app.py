@@ -401,6 +401,42 @@ with st.expander("Market pillar debug"):
             st.write("Tail of market_processed.csv:")
             st.dataframe(mkt.tail(10))
 
+with st.expander("Credit pillar debug"):
+    credit_path = os.path.join("data", "processed", "credit_fred_processed.csv")
+    if not os.path.exists(credit_path):
+        st.info("credit_fred_processed.csv not found. Run the update-data workflow first.")
+    else:
+        credit = pd.read_csv(credit_path, index_col=0, parse_dates=True).sort_index()
+        credit.index.name = "date"
+
+        st.write("Underlying credit series (FRED):")
+        st.dataframe(credit.tail(10))
+
+        # Long format for Altair
+        credit_long = (
+            credit.reset_index()
+            .melt(id_vars="date", var_name="Series", value_name="Value")
+            .dropna(subset=["Value"])
+        )
+
+        credit_chart = (
+            alt.Chart(credit_long)
+            .mark_line()
+            .encode(
+                x=alt.X("date:T", title="Date"),
+                y=alt.Y("Value:Q", title="Level (native units)"),
+                color="Series:N",
+                tooltip=[
+                    alt.Tooltip("date:T", title="Date"),
+                    alt.Tooltip("Series:N", title="Series"),
+                    alt.Tooltip("Value:Q", title="Value", format=".2f"),
+                ],
+            )
+            .properties(height=260)
+            .interactive()
+        )
+
+        st.altair_chart(credit_chart, use_container_width=True)
 
 # ---------- Footer ----------
 st.markdown("---")
