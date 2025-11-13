@@ -401,6 +401,8 @@ with st.expander("Market pillar debug"):
             st.write("Tail of market_processed.csv:")
             st.dataframe(mkt.tail(10))
 
+# ---------- Pillar-by-pillar debug: Credit ----------
+
 with st.expander("Credit pillar debug"):
     credit_path = os.path.join("data", "processed", "credit_fred_processed.csv")
     if not os.path.exists(credit_path):
@@ -437,6 +439,48 @@ with st.expander("Credit pillar debug"):
         )
 
         st.altair_chart(credit_chart, use_container_width=True)
+
+# ---------- Pillar-by-pillar debug: Capex ----------
+
+with st.expander("Capex / Supply pillar debug"):
+    cap_path = os.path.join("data", "processed", "capex_processed.csv")
+    if not os.path.exists(cap_path):
+        st.info("capex_processed.csv not found.")
+    else:
+        cap = pd.read_csv(cap_path, index_col=0, parse_dates=True).sort_index()
+        cap.index.name = "date"
+
+        # Identify component columns
+        comp_cols = [c for c in cap.columns if c.startswith("Capex_")]
+        show_cols = ["Capex_Supply"] + comp_cols
+
+        cap_long = (
+            cap[show_cols]
+            .reset_index()
+            .melt(id_vars="date", var_name="Series", value_name="Value")
+            .dropna(subset=["Value"])
+        )
+
+        st.write("Underlying Capex components (rebased to 100):")
+
+        cap_chart = (
+            alt.Chart(cap_long)
+            .mark_line()
+            .encode(
+                x="date:T",
+                y="Value:Q",
+                color="Series:N",
+                tooltip=["date:T", "Series:N", "Value:Q"],
+            )
+            .properties(height=260)
+            .interactive()
+        )
+
+        st.altair_chart(cap_chart, use_container_width=True)
+
+        st.write("Tail:")
+        st.dataframe(cap.tail(10))
+
 
 # ---------- Footer ----------
 st.markdown("---")
