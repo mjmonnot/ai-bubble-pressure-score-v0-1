@@ -1,7 +1,6 @@
 # src/aibps/fetch_market.py
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import List
 
@@ -9,20 +8,20 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-
 DATA_DIR = Path("data")
 RAW_OUT = DATA_DIR / "raw" / "market_prices.csv"
 PROC_OUT = DATA_DIR / "processed" / "market_processed.csv"
 
-# Pull deep history — set as far back as you want (e.g., your 1980 birth-year!)
+# Go back to your birth year 🙂
 START = "1980-01-01"
 
-# Broad, long-history proxies (all exist on Yahoo and go back decades):
-# - ^GSPC = S&P 500 (long, stable history)
-# - ^IXIC = Nasdaq Composite
-# - ^NDX  = Nasdaq 100 (starts in the 1980s/1990s depending on vendor)
-# You can add/remove tickers; the code will equal-weight whatever succeeds.
-TICKERS: List[str] = ["^GSPC", "^IXIC", "^NDX"]
+# Broad + growth/speculative proxies
+# ^GSPC: S&P 500
+# ^IXIC: Nasdaq Composite
+# ^NDX : Nasdaq 100
+# QQQ  : Nasdaq 100 ETF
+# ARKK : High-spec innovation ETF
+TICKERS: List[str] = ["^GSPC", "^IXIC", "^NDX", "QQQ", "ARKK"]
 
 
 def _fetch_one(ticker: str, start: str) -> pd.Series | None:
@@ -41,17 +40,25 @@ def _fetch_one(ticker: str, start: str) -> pd.Series | None:
     s.index = pd.to_datetime(s.index)
     s.index.name = "date"
 
-    # Convert to month-end frequency: last available close in each month
+    # Monthly: last close of each month
     s = s.resample("M").last().dropna()
 
-    # Guard against all-NaN
     if s.empty:
         print(f"⚠️ No monthly data for {ticker} after resample; skipping.")
         return None
 
-    # Return as a named Series (no .rename(...) to avoid previous pitfalls)
     s.name = ticker
     return s
+
+
+def _rebase_100(s: pd.Series) -> pd.Series:
+    s = s.sort_index()
+    if not s.notna().any():
+        return s * np.nan
+    first = s.dropna().iloc[0]
+    if not np.isfinite(first) or first == 0:
+        return s * np.nan
+    return (s / first) * 100.0
 
 
 def main():
@@ -78,30 +85,25 @@ def main():
     print(f"💾 Wrote {RAW_OUT} with columns: {list(wide.columns)}")
     print(f"   Date span: {wide.index.min().date()} → {wide.index.max().date()}")
 
-    # Build an equal-weighted, rebased composite so scales are comparable
-    # 1) Rebase each ticker to 100 at its first valid point
-    rebased = wide.copy()
-    for col in rebased.columns:
-        first_valid = rebased[col].dropna().iloc[0] if rebased[col].notna().any() else np.nan
-        if np.isfinite(first_valid) and first_valid != 0:
-            rebased[col] = (rebased[col] / first_valid) * 100.0
-        else:
-            rebased[col] = np.nan
+    # Rebase each series to 100 at its own first valid point
+    rebased = wide.apply(_rebase_100)
+    # Give friendly column names for debug
+    rename_map = {col: f"Mkt_{col.replace('^', '')}_idx" for col in rebased.columns}
+    rebased = rebased.rename(columns=rename_map)
 
-    # 2) Equal-weight across available tickers each month
-    market_eqw = rebased.mean(axis=1, skipna=True)
+    # Equal-weight composite of all rebased series
+    market_eqw = rebased.mean(axis=1, skipna=True).rename("Market")
 
-    # 3) Clean output frame for compute.py
-    out = pd.DataFrame({"Market": market_eqw}).dropna(how="all")
+    # Output: composite + underlying rebased components
+    out = pd.concat([market_eqw, rebased], axis=1).dropna(how="all")
     out.index.name = "date"
 
-    # Sanity prints
-    print("---- Market composite tail (rebased, EW) ----")
-    print(out.tail(6))
+    print("---- Market composite tail (rebased EW) ----")
+    print(out[["Market"]].tail(6))
     print(f"✅ Market composite span: {out.index.min().date()} → {out.index.max().date()}")
 
     out.to_csv(PROC_OUT)
-    print(f"💾 Wrote {PROC_OUT} (rows={len(out)})")
+    print(f"💾 Wrote {PROC_OUT} (rows={len(out)}) with columns: {list(out.columns)}")
 
 
 if __name__ == "__main__":
