@@ -442,8 +442,64 @@ with st.expander("Credit pillar debug"):
 
 # ---------- Pillar-by-pillar debug: Capex ----------
 
-with st.expander("Infrastructure (Infra) pillar debug"):
-    # Try multiple possible processed files
+# -----------------------------
+# CAPEX / SUPPLY PILLAR DEBUG
+# -----------------------------
+with st.expander("Capex / Supply Pillar Debug"):
+    capex_candidates = [
+        os.path.join("data", "processed", "capex_processed.csv"),
+        os.path.join("data", "processed", "capex_supply_processed.csv"),
+        os.path.join("data", "processed", "macro_capex_processed.csv"),
+    ]
+
+    capex_path = None
+    for p in capex_candidates:
+        if os.path.exists(p):
+            capex_path = p
+            break
+
+    if capex_path is None:
+        st.info("No capex-related processed file found.")
+    else:
+        st.write(f"Using: `{capex_path}`")
+
+        cap = pd.read_csv(capex_path, index_col=0, parse_dates=True).sort_index()
+        cap.index.name = "date"
+
+        st.write("Tail of Capex / Supply:")
+        st.dataframe(cap.tail(10))
+
+        numeric_cols = cap.select_dtypes(include="number").columns.tolist()
+        if numeric_cols:
+            cap_long = (
+                cap[numeric_cols]
+                .reset_index()
+                .melt(id_vars="date", var_name="Series", value_name="Value")
+                .dropna(subset=["Value"])
+            )
+
+            cap_chart = (
+                alt.Chart(cap_long)
+                .mark_line()
+                .encode(
+                    x="date:T",
+                    y="Value:Q",
+                    color="Series:N",
+                    tooltip=["date:T", "Series:N", "Value:Q"]
+                )
+                .properties(height=260)
+                .interactive()
+            )
+
+            st.altair_chart(cap_chart, use_container_width=True)
+        else:
+            st.info("No numeric Capex columns to plot.")
+
+
+# -----------------------------
+# INFRASTRUCTURE PILLAR DEBUG
+# -----------------------------
+with st.expander("Infrastructure (Infra) Pillar Debug"):
     infra_candidates = [
         os.path.join("data", "processed", "infra_processed.csv"),
         os.path.join("data", "processed", "infra_macro_processed.csv"),
@@ -463,19 +519,17 @@ with st.expander("Infrastructure (Infra) pillar debug"):
         infra = pd.read_csv(infra_path, index_col=0, parse_dates=True).sort_index()
         infra.index.name = "date"
 
-        st.write("Tail of infra processed data:")
+        st.write("Tail of Infra processed data:")
         st.dataframe(infra.tail(10))
 
-        # Try to identify Infra-related columns
-        infra_cols = [c for c in infra.columns if ("Infra" in c) or (c == "Infra")]
+        # Identify columns related to Infra
+        infra_cols = [c for c in infra.columns if "Infra" in c]
+
+        # Fallback: plot all numeric columns
         if not infra_cols:
-            # Fallback: plot all numeric columns
             infra_cols = infra.select_dtypes(include="number").columns.tolist()
 
-        if not infra_cols:
-            st.info("No numeric Infra columns found to plot.")
-        else:
-            st.markdown("**Infra components and/or composite:**")
+        if infra_cols:
             infra_long = (
                 infra[infra_cols]
                 .reset_index()
@@ -487,16 +541,18 @@ with st.expander("Infrastructure (Infra) pillar debug"):
                 alt.Chart(infra_long)
                 .mark_line()
                 .encode(
-                    x=alt.X("date:T", title="Date"),
-                    y=alt.Y("Value:Q", title="Value (mixed units / indexes)"),
+                    x="date:T",
+                    y="Value:Q",
                     color="Series:N",
-                    tooltip=["date:T", "Series:N", "Value:Q"],
+                    tooltip=["date:T", "Series:N", "Value:Q"]
                 )
                 .properties(height=260)
                 .interactive()
             )
 
             st.altair_chart(infra_chart, use_container_width=True)
+        else:
+            st.info("No numeric Infra columns to plot.")
 
 
 
