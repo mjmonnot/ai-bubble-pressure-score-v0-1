@@ -1,11 +1,22 @@
 import os
+
 import numpy as np
 import pandas as pd
 import streamlit as st
 import altair as alt
 
-# ---------- Paths ----------
+# ---------- Paths & constants ----------
 PROC_PATH = os.path.join("data", "processed", "aibps_monthly.csv")
+
+# The pillars we conceptually care about
+PILLAR_CANDIDATES = [
+    "Market",
+    "Credit",
+    "Capex_Supply",
+    "Infra",
+    "Adoption",
+    "Sentiment",
+]
 
 # ---------- Page config ----------
 st.set_page_config(
@@ -31,14 +42,11 @@ if df.empty:
 
 df.index.name = "date"
 
-# ---------- Detect pillars dynamically ----------
-# Treat all numeric columns except AIBPS & AIBPS_RA as pillars
-numeric_cols = df.select_dtypes(include="number").columns.tolist()
-pillar_exclude = ["AIBPS", "AIBPS_RA"]
-available_pillars = [c for c in numeric_cols if c not in pillar_exclude]
+# Figure out which of our six conceptual pillars actually exist
+available_pillars = [p for p in PILLAR_CANDIDATES if p in df.columns]
 
 if not available_pillars:
-    st.error("No numeric pillars found in composite file.")
+    st.error("None of the expected pillars are present in the composite file.")
     st.stop()
 
 # ---------- Sidebar: weights & options ----------
@@ -90,11 +98,11 @@ with st.sidebar:
 
 pillars_df = df[available_pillars].copy()
 
-# In-app composite
+# In-app composite from pillar weights
 comp_in_app_raw = (pillars_df * weights).sum(axis=1)
 comp_in_app_ra = comp_in_app_raw.rolling(3, min_periods=1).mean()
 
-# Precomputed composite (if present)
+# Precomputed composite from CSV (if present)
 precomp_raw = df["AIBPS"] if "AIBPS" in df.columns else None
 precomp_ra = df["AIBPS_RA"] if "AIBPS_RA" in df.columns else None
 
@@ -147,7 +155,7 @@ with col_c:
 
 st.markdown("---")
 
-# ---------- Composite chart with bands + bubble markers ----------
+# ---------- Composite chart: bands + regime lines + bubble markers ----------
 
 st.subheader("AI Bubble Pressure Score over time")
 
@@ -207,7 +215,11 @@ aibps_line = (
     .mark_line(strokeWidth=3)
     .encode(
         x=alt.X("date:T", title="Date"),
-        y=alt.Y("Composite:Q", title="AIBPS (0–100)", scale=alt.Scale(domain=[0, 100])),
+        y=alt.Y(
+            "Composite:Q",
+            title="AIBPS (0–100)",
+            scale=alt.Scale(domain=[0, 100]),
+        ),
         tooltip=[
             alt.Tooltip("date:T", title="Date"),
             alt.Tooltip("Composite:Q", title=comp_label, format=".1f"),
@@ -239,7 +251,14 @@ event_rules = (
 
 event_labels = (
     alt.Chart(event_data)
-    .mark_text(align="left", baseline="middle", dx=5, dy=0, color="gray", fontSize=11)
+    .mark_text(
+        align="left",
+        baseline="middle",
+        dx=5,
+        dy=0,
+        color="gray",
+        fontSize=11,
+    )
     .encode(
         x="date:T",
         y=alt.Y("ypos:Q", scale=alt.Scale(domain=[0, 100])),
@@ -259,66 +278,77 @@ st.altair_chart(composite_chart, use_container_width=True)
 
 st.markdown("### Pillar trajectories")
 
-# Any pillar that ever has data gets a trajectory
-pillars_with_data = [p for p in available_pillars if df[p].notna().any()]
-
 pillars_long = (
-    df[pillars_with_data]
+    df[available_pillars]
     .reset_index()
     .melt(id_vars="date", var_name="Pillar", value_name="Value")
     .dropna(subset=["Value"])
 )
 
-pillars_chart = (
-    alt.Chart(pillars_long)
-    .mark_line()
-    .encode(
-        x=alt.X("date:T", title="Date"),
-        y=alt.Y("Value:Q", title="Normalized (0–100)", scale=alt.Scale(domain=[0, 100])),
-        color="Pillar:N",
-        facet=alt.Facet("Pillar:N", columns=3),
+if pillars_long.empty:
+    st.info("No non-missing pillar data to plot.")
+else:
+    pillars_chart = (
+        alt.Chart(pillars_long)
+        .mark_line()
+        .encode(
+            x=alt.X("date:T", title="Date"),
+            y=alt.Y(
+                "Value:Q",
+                title="Normalized (0–100)",
+                scale=alt.Scale(domain=[0, 100]),
+            ),
+            color="Pillar:N",
+            facet=alt.Facet("Pillar:N", columns=3),
+        )
+        .properties(height=140)
+        .resolve_scale(y="shared")
     )
-    .properties(height=140)
-    .resolve_scale(y="shared")
-)
 
-st.altair_chart(pillars_chart, use_container_width=True)
+    st.altair_chart(pillars_chart, use_container_width=True)
 
 # ---------- Latest pillar contributions ----------
 
 st.markdown("### Latest pillar contributions")
 
-# Use the last date where at least 2 pillars have data
-valid_rows = df[pillars_with_data].dropna(how="all")
+valid_rows = df[available_pillars].dropna(how="all")
 if valid_rows.empty:
-    st.info("No rows with any pillar data found for contributions.")
+    st.info("No rows with pillar data found for contributions.")
 else:
-    contrib_date = valid_rows.index.max()
-    latest_row = df.loc[contrib_date, pillars_with_data]
+    # Last date where at least 2 pillars have data
+    mask_at_least_two = valid_rows.notna().sum(axis=1) >= 2
+    if not mask_at_least_two.any():
+        st.info("Not enough non-missing pillars at any date to compute contributions.")
+    else:
+        contrib_date = valid_rows.index[mask_at_least_two].max()
+        latest_row = df.loc[contrib_date, available_pillars]
 
-    contrib = latest_row * weights.reindex(pillars_with_data)
-    contrib = contrib.dropna()
+        contrib = latest_row * weights.reindex(available_pillars)
+        contrib = contrib.dropna()
 
-    contrib_df = pd.DataFrame(
-        {"Pillar": contrib.index, "Contribution": contrib.values}
-    )
-
-    st.caption(f"Contributions as of {contrib_date.strftime('%Y-%m-%d')}")
-
-    contrib_chart = (
-        alt.Chart(contrib_df)
-        .mark_bar()
-        .encode(
-            x=alt.X("Contribution:Q", title="Weighted contribution (0–100 scale)"),
-            y=alt.Y("Pillar:N", sort="-x"),
-            tooltip=[
-                alt.Tooltip("Pillar:N", title="Pillar"),
-                alt.Tooltip("Contribution:Q", title="Contribution", format=".1f"),
-            ],
+        contrib_df = pd.DataFrame(
+            {"Pillar": contrib.index, "Contribution": contrib.values}
         )
-    )
 
-    st.altair_chart(contrib_chart, use_container_width=True)
+        st.caption(f"Contributions as of {contrib_date.strftime('%Y-%m-%d')}")
+
+        contrib_chart = (
+            alt.Chart(contrib_df)
+            .mark_bar()
+            .encode(
+                x=alt.X(
+                    "Contribution:Q",
+                    title="Weighted contribution (0–100 scale)",
+                ),
+                y=alt.Y("Pillar:N", sort="-x"),
+                tooltip=[
+                    alt.Tooltip("Pillar:N", title="Pillar"),
+                    alt.Tooltip("Contribution:Q", title="Contribution", format=".1f"),
+                ],
+            )
+        )
+
+        st.altair_chart(contrib_chart, use_container_width=True)
 
 # ---------- Footer ----------
 st.markdown("---")
