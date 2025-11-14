@@ -1,205 +1,196 @@
-# 📘 AI Bubble Pressure Score (AIBPS)
-### Overview, Methods, Pillars, Interpretation & Data Sources (v0.2)  
-_Last updated: {{ auto-updated by GitHub Action }}_
+# 📘 **AI Bubble Pressure Score (AIBPS)**
+### **Overview, Conceptual Framework & Interpretation Guide (v0.2)**  
+_Last updated: {{ auto-updated by GitHub Actions }}_
 
 ---
 
-# 🧠 1. What Is the AIBPS?
+<div align="center">
 
-The **AI Bubble Pressure Score (AIBPS)** is a multi-pillar economic composite designed to estimate **systemic overheating** in the AI-driven economy. Its goal is to detect **bubble-like pressure** using signals from:
+✨ **A composite indicator for detecting structural overheating in the AI-driven economy.**  
+Tracks markets, credit, capex, infrastructure, adoption, and sentiment as a unified macro signal.
 
-- Financial markets  
-- Corporate investment & supply chains  
-- Credit conditions  
-- Infrastructure capacity  
-- AI adoption trends  
-- Public & institutional sentiment  
-
-Unlike simple price indices, the AIBPS attempts to measure **structural stress**, not just valuation spikes.
+</div>
 
 ---
 
-# 🏗️ 2. Pillar Framework
+# 🧠 **1. What Is the AIBPS?**
 
-AIBPS aggregates **six pillars**, each normalized onto a **0–100 pressure scale** using rolling z-sigmoid normalization.
+The **AI Bubble Pressure Score (AIBPS)** is a multi-pillar composite index designed to estimate **bubble-like systemic pressure** in the AI economy.  
+Unlike simple valuation metrics, AIBPS synchs together **six structural dimensions**:
 
-| Pillar | Meaning | Why It Matters | Normalization |
-|-------|---------|----------------|---------------|
-| **Market** | AI-equity–linked pricing & volatility | Captures speculative excess | Rolling Z-Sigmoid |
-| **Credit** | HY & IG spreads | Detects financial conditions & risk | Rolling Z-Sigmoid |
-| **Capex / Supply** | AI-major capex + macro ICT investment | Detects overbuilding cycles | Rolling Z-Sigmoid |
-| **Infrastructure** | DC power, cooling, rackspace constraints | Capacity strain amplifies bubbles | Rolling Z-Sigmoid |
-| **Adoption** | Enterprise penetration & usage | Measures real economic absorption | Rolling Z-Sigmoid |
-| **Sentiment** | Google Trends + narrative intensity | Social hype accelerates bubbles | Rolling Z-Sigmoid |
+- 📈 Market valuations & volatility  
+- 💵 Credit risk & financial conditions  
+- 🏭 Capex cycles & supply investment  
+- ⚡ Infrastructure stress (power, racks, cooling)  
+- 🧩 Adoption growth & enterprise absorption  
+- 🔥 Sentiment intensity & hype dynamics  
 
-Each pillar contributes **equally** by default (weights editable in `config.yaml`).
-
----
-
-# 🔧 3. Data Pipeline Overview
-
-
-## Scripts (in `src/aibps/`)
-- `fetch_market.py` – AI-linked asset series (NDX, SOXX, NVDA basket)
-- `fetch_credit.py` – FRED HY/IG spreads  
-- `fetch_capex.py` – Macro capex + AI corporate capex  
-- `fetch_infra.py` – Data center capacity, power, cooling  
-- `fetch_adoption.py` – Enterprise AI adoption  
-- `fetch_sentiment.py` – Google Trends + narrative mentions  
-- `normalize.py` – Rolling Z / Z-Sigmoid transforms  
-- `compute.py` – Pillar combination → composite → AIBPS output  
-
-## Automated Updates  
-GitHub Actions (`.github/workflows/update-data.yml`) runs nightly:
-- Fetches fresh data  
-- Normalizes pillars  
-- Recomputes composite  
-- Commits updated processed files  
-- Refreshes Streamlit app  
+**Goal:** detect overheating *before* system fragility reveals itself.
 
 ---
 
-# 🧮 4. Normalization Model
+# 🏗️ **2. Pillar Framework**
 
-AIBPS uses **Rolling Z-Sigmoid normalization**, which:
+Each pillar is transformed into a **0–100 pressure score** using a standardized normalization method (rolling Z → sigmoid scaling).  
+This enables meaningful combination of otherwise unrelated signals.
 
-- Captures **local deviation** (short-term overheating)  
-- Adapts to **long-run drift**  
-- Produces intuitive **0–100 scaled pressure**  
+| Pillar | Measures | Why It Matters | Signal Type |
+|-------|----------|----------------|-------------|
+| **Market** | Returns, volatility, semiconductor & AI baskets | Captures speculative excess | Financial |
+| **Credit** | HY/IG spreads | Detects risk complacency | Macro-financial |
+| **Capex / Supply** | AI-major capex + macro ICT investment | Reveals investment overshoot | Real economy |
+| **Infrastructure** | Power, cooling, rackspace strain | Capacity bottlenecks under bubbles | Physical constraint |
+| **Adoption** | Enterprise penetration, API usage, spend | Real demand vs. hype | Demand-side |
+| **Sentiment** | Google Trends, narrative intensity | Crowd psychology & hype cycles | Behavioral |
 
-### Formula (simplified)
-
-z = (x − rolling_mean) / rolling_std
-z_clipped = clip(z, -z_clip, +z_clip)
-score = 100 * sigmoid(z_clipped)
-
-This keeps the model robust over long time horizons (1980 → present).
+All pillars are equally weighted by default (configurable in `config.yaml`).
 
 ---
 
-# 📊 5. Composite Construction
+# 🔧 **3. Data Pipeline (High-Level)**
 
-The AIBPS composite is:
+Raw Data → Cleaning + Resampling → Normalization → Composite AIBPS
+(Market, FRED, etc.) (fetch_*.py scripts) (normalize.py) (compute.py)
+
+
+Automated nightly through GitHub Actions.  
+Processed outputs live in:  
+`data/processed/`
+
+Dashboard visualization lives in Streamlit.
+
+---
+
+# 🧮 **4. Normalization Model (Intuition)**
+
+AIBPS uses a **rolling Z-score → sigmoid transform**, which:
+
+- Adapts to structural drift (e.g., markets trend over decades)  
+- Preserves short-term deviations (bubble pressure signals)  
+- Generates a unified 0–100 scale across domains  
+
+Conceptually:
+
+Step 1: Compare each value to its rolling mean (short-term deviation)
+Step 2: Scale using rolling standard deviation (local extremeness)
+Step 3: Smooth extremes with a sigmoid into 0–100 range
+
+
+This allows credit spreads, capex, Google Trends, and market volatility to live on the same scale.
+
+---
+
+# 📈 **5. Composite Score Construction**
+
+Final score = weighted average of normalized pillars:
 
 AIBPS = Σ ( weight_i × pillar_i_normalized )
 
 
-Default weights:
+Default weights (equal):
 
-Market: 1/6
-Credit: 1/6
-Capex/Supply: 1/6
-Infrastructure: 1/6
-Adoption: 1/6
-Sentiment: 1/6
+Market, Credit, Capex, Infrastructure, Adoption, Sentiment = 1/6 each
 
 
-Weights are configurable via `config.yaml`.
+Weights are editable in `config.yaml`.
 
 ---
 
-# 📈 6. Interpretation Guide
+# 🔍 **6. How to Interpret AIBPS Levels**
 
-### **0–30: Low Pressure (Green)**
-- Normal structural conditions  
-- Underbuilding or steady expansion  
-- No speculation signal  
+| AIBPS Range | Meaning | Interpretation |
+|-------------|----------|----------------|
+| **0–30** | Low Pressure | Underbuilding, stable markets, no bubble formation |
+| **30–55** | Neutral | Mixed signals, rising investment, stable fundamentals |
+| **55–75** | Elevated | Bubble formation zone; sentiment > fundamentals |
+| **75–100** | Extreme | High systemic pressure; historically precedes sharp corrections |
 
-### **30–55: Neutral (Yellow)**
-- Mixed indicators  
-- Investment and adoption rising  
-- No clear bubble dynamics  
-
-### **55–75: Elevated (Orange)**
-- Bubble formation zone  
-- Sentiment rising faster than fundamentals  
-- Credit spreads narrowing despite risk  
-- Infrastructure strain emerging  
-
-### **75–100: Extreme (Red)**
-- Bubble acceleration  
-- Speculative feedback loops  
-- Rapid capex + euphoric sentiment  
-- Historically associated with crash regimes  
+This is not a timing tool — it’s a **stress diagnostician**.
 
 ---
 
-# 🏦 7. Historical Anchors
+# 🕰️ **7. Historical Anchors**
 
-AIBPS marks historically relevant peaks:
+To contextualize modern AI dynamics, the dashboard marks:
 
-- **Dot-Com Peak (Mar 2000)**  
-- **Housing Bubble Peak (2006)**  
-- **Lehman Event (Sep 2008)**  
-- **Generative AI Breakout (2022–2025)**  
+- 📌 **Dot-Com Peak (Mar 2000)**  
+- 📌 **Housing Bubble (2006)**  
+- 📌 **Lehman Event (2008)**  
+- 📌 **Generative AI Supercycle (2022–2025)**  
 
-As long-run data (1980s onward) is integrated, these periods help calibrate structural comparisons.
+These help interpret whether today’s configuration resembles prior overheating regimes.
 
 ---
 
-# 🌐 8. Data Sources (Primary)
+# 🌍 **8. Data Sources (Primary)**
 
-## Market
-- NASDAQ 100  
-- SOXX Semiconductor Index  
-- NVDA/AMD/MSFT/GOOGL/META weighted basket  
-- Source: Yahoo Finance  
+### **Market**
+- Yahoo Finance (indices + tickers)
+- Semiconductor index (SOXX)
+- Weighted AI megacap basket (NVDA, AMD, MSFT, GOOGL, META)
 
-## Credit
-- FRED HY OAS (`BAMLH0A0HYM2`)  
-- FRED IG OAS (`BAMLC0A0CM`)  
+### **Credit**
+- FRED High-Yield Option-Adjusted Spread  
+- FRED Investment-Grade OAS  
 
-## Capex / Supply
-- PNFI (Nonresidential Fixed Investment)  
+### **Capex / Supply**
+- PNFI (Private Nonresidential Fixed Investment)  
 - UNXANO (Information Processing Equipment)  
-- Major AI capex (NVDA, AMD, MSFT, GOOGL 10-K/10-Q)  
+- 10-K / 10-Q reported capex: NVDA, AMD, MSFT, GOOGL  
 
-## Infrastructure
-- Data center power capacity (EIA, CBRE, Statista)  
-- Cooling demand trends  
-- Rackspace inventory / pricing  
+### **Infrastructure**
+- Data center power/cooling (EIA, CBRE, Statista)
+- Rackspace inventory trends
+- GPU cluster availability (extensions planned)
 
-## Adoption
-- Global enterprise AI penetration (McKinsey, Deloitte)  
-- Cloud compute consumption  
-- Model API usage  
+### **Adoption**
+- Enterprise AI penetration (McKinsey, Deloitte)
+- Cloud AI spend
+- Model API usage rates
 
-## Sentiment
-- Google Trends search intensity  
-- Newswire frequency (GDELT — planned)  
-- Social sentiment (planned)  
-
----
-
-# 🔮 9. Planned Enhancements
-
-- **AI Compute Cost Index** (GPU availability, cluster cost)  
-- **Token-inflation–adjusted compute demand metrics**  
-- **VC funding cycle integration**  
-- **Labor displacement indicators**  
-- **International AI adoption differentials**  
-- **Regulatory acceleration / deceleration metrics**  
+### **Sentiment**
+- Google Trends  
+- Narrative intensity (GDELT – planned)  
+- Social signals (future expansion)
 
 ---
 
-# 📚 10. Key References (APA)
+# 🔮 **9. Planned Enhancements**
+
+- AI Compute Cost Index  
+- Token price inflation metrics  
+- GPU market scarcity tracker  
+- VC funding cycle indicators  
+- NLP sentiment scoring (news + social media)  
+- Regime-switching time-series overlays  
+- Country-level divergence metrics  
+- Bubble lifecycle classification  
+
+---
+
+# 📚 **10. Key References (APA)**
 
 McKinsey Global Institute. (2023). *The State of AI in 2023.*  
 OpenAI. (2024). *GPT-4 Technical Report.*  
-Federal Reserve Bank of St. Louis. (2025). *FRED Economic Database.*  
-GDELT Project. (2024). *Global Database of Events, Language, and Tone.*  
+Federal Reserve Bank of St. Louis. (2025). *FRED Economic Series.*  
 CBRE Research. (2024). *North America Data Center Trends.*  
-Statista. (2024). *Global AI Market & Adoption Indicators.*  
+GDELT Project. (2024). *Global Narrative Database.*  
+Statista. (2024). *AI Market Size and Adoption.*  
 
 ---
 
-# 📎 11. How to Use This Document
+# 📎 **11. Document Purpose**
 
-This file should serve as the **primary methodological reference** for the AIBPS project.  
-It is linked from:
+This **Overview** is meant to be:
 
-- GitHub repository  
-- Streamlit dashboard  
-- Documentation portal (optional future GitHub Pages site)  
+- The *front door* for new readers  
+- A conceptual introduction to the project  
+- A high-level explanation of pillars, signals, and interpretation  
+- A companion to the deeper docs (`methods.md`, `pillars.md`, etc.)
+
+Technical details are in `methods.md`.  
+Data definitions are in `pillars.md`.  
+System diagrams are in `architecture.md`.
 
 ---
+
