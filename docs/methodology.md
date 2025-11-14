@@ -1,6 +1,6 @@
 # 🧭 AI Bubble Pressure Score (AIBPS)  
 ### *Methodology, Data Sources, and Interpretation Guide*  
-_Last updated: {{DATE}}_
+_Last updated: 11-14-25
 
 ---
 
