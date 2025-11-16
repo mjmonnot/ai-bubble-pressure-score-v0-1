@@ -2,7 +2,6 @@
 ### Quantifying systemic bubble pressure across the AI economy  
 **Market • Credit • Capex • Infrastructure • Adoption • Sentiment**
 
-![AIBPS Banner](docs/img/banner_placeholder.png)
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-Interactive%20App-FF4B4B.svg)](https://streamlit.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
