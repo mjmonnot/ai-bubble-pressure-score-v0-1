@@ -87,13 +87,13 @@ jobs:
           ls -al src || true
           ls -al src/aibps || true
 
-      - name: Fetch macro capex (PNFI + UNXANO)
+      - name: Fetch Macro Capex (FRED + Hyperscalers)
         env:
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: |
-          python src/aibps/fetch_macro_capex.py
-          echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
-          tail -n 10 data/processed/macro_capex_processed.csv || true
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      run: |
+        python src/aibps/fetch_macro_capex.py
+         echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
+         tail -n 10 data/processed/macro_capex_processed.csv || true
 
       - name: Fetch Infra Macro (power IP + capacity)
         env:
