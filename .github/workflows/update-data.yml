@@ -91,7 +91,7 @@ jobs:
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          python src/aibps/fetch_capex_macro.py
+          python src/aibps/fetch_macro_capex.py
           echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
           tail -n 10 data/processed/macro_capex_processed.csv || true
 
