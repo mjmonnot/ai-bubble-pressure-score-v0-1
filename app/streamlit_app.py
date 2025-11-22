@@ -315,6 +315,73 @@ else:
 
     st.altair_chart(pillars_chart, use_container_width=True)
 
+import os  # ensure this is at the top of the file once, not repeated
+
+# --- Capex supply trajectory from macro_capex_processed (raw index) ---
+
+st.subheader("Capex supply trajectory (raw index, baseline = 100)")
+
+macro_capex_path = "data/processed/macro_capex_processed.csv"
+
+if not os.path.exists(macro_capex_path):
+    st.info(f"`{macro_capex_path}` not found. Run the update-data workflow first.")
+else:
+    try:
+        capex_df = (
+            pd.read_csv(macro_capex_path, parse_dates=["Date"])
+            .set_index("Date")
+            .sort_index()
+        )
+    except Exception as e:
+        st.error(f"Failed to read `{macro_capex_path}`: {e}")
+        capex_df = None
+
+    if capex_df is not None and not capex_df.empty:
+        # Prefer Capex_Supply if present, otherwise fall back to a macro composite
+        capex_col = None
+        for candidate in ["Capex_Supply", "Capex_Macro_Comp"]:
+            if candidate in capex_df.columns:
+                capex_col = candidate
+                break
+
+        if capex_col is None:
+            st.info("No Capex_Supply or Capex_Macro_Comp column found in macro_capex_processed.csv.")
+        else:
+            capex_series = capex_df[capex_col].dropna()
+            if capex_series.empty:
+                st.info(f"{capex_col} has no valid values.")
+            else:
+                capex_vis = (
+                    capex_series.reset_index(name="Value")
+                    .rename(columns={"Date": "date"})
+                )
+
+                capex_line = (
+                    alt.Chart(capex_vis)
+                    .mark_line()
+                    .encode(
+                        x=alt.X("date:T", title="Date"),
+                        y=alt.Y("Value:Q", title="Capex index (baseline = 100)"),
+                        tooltip=[
+                            alt.Tooltip("date:T", title="Date"),
+                            alt.Tooltip("Value:Q", title="Index", format=".1f"),
+                        ],
+                    )
+                    .properties(
+                        height=260,
+                        title=f"{capex_col} over time (raw capex index from macro_capex_processed.csv)",
+                    )
+                )
+
+                st.altair_chart(capex_line, use_container_width=True)
+
+                # Quick numeric tail for sanity
+                st.caption("Latest 12 observations for capex index")
+                st.dataframe(capex_series.tail(12))
+    else:
+        st.info("macro_capex_processed.csv is empty.")
+
+
 # ---------- Latest pillar contributions ----------
 
 st.markdown("### Latest pillar contributions")
