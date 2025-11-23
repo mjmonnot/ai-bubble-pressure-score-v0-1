@@ -568,6 +568,7 @@ with st.expander("Capex pillar debug", expanded=False):
 # -----------------------------
 # INFRASTRUCTURE PILLAR DEBUG
 # -----------------------------
+
 with st.expander("Infra pillar debug", expanded=False):
     st.markdown("### Infrastructure subcomponents (diagnostic view)")
 
