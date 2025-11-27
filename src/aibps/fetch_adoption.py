@@ -39,7 +39,6 @@ Output:
 
 import os
 import sys
-from datetime import datetime
 
 import pandas as pd
 
@@ -87,7 +86,7 @@ CONNECTIVITY_SERIES = [
 # Helper functions
 # ---------------------------------------------------------------------
 
-def get_fred_client() -> Fred | None:
+def get_fred_client():
     """Instantiate a Fred client from FRED_API_KEY, or return None if unavailable."""
     if Fred is None:
         print("❌ fredapi is not installed. Install it in your environment.")
@@ -106,7 +105,7 @@ def get_fred_client() -> Fred | None:
         return None
 
 
-def fetch_series_block(fred: Fred, pairs: list[tuple[str, str]], label: str) -> pd.DataFrame:
+def fetch_series_block(fred, pairs, label):
     """
     Fetch a block of FRED series and return a DataFrame with datetime index.
 
@@ -115,7 +114,7 @@ def fetch_series_block(fred: Fred, pairs: list[tuple[str, str]], label: str) -> 
     Returns:
         DataFrame with columns named per column_name; may be empty if everything fails.
     """
-    frames: list[pd.Series] = []
+    frames = []
 
     for sid, colname in pairs:
         try:
@@ -142,7 +141,7 @@ def fetch_series_block(fred: Fred, pairs: list[tuple[str, str]], label: str) -> 
     return df
 
 
-def block_to_composite(df_block: pd.DataFrame, out_name: str) -> pd.Series:
+def block_to_composite(df_block, out_name):
     """
     Convert a multi-column block into a single composite Series by row-wise mean.
 
@@ -158,21 +157,25 @@ def block_to_composite(df_block: pd.DataFrame, out_name: str) -> pd.Series:
     return ser
 
 
-def reindex_monthly(df: pd.DataFrame, start_date: str) -> pd.DataFrame:
+def reindex_monthly(df, start_date):
     """
-    Resample an irregular-frequency DataFrame to month-end, forward-fill, and
-    then trim to dates >= start_date.
+    Resample an irregular-frequency DataFrame to month-end ("ME"), forward-fill,
+    and then trim to dates >= start_date.
 
-    This avoids the bug where we reindexed to a brand-new monthly index that
-    never included the original observation dates (e.g., Jan 1 vs Jan 31),
-    which caused all-NaN series.
+    This ensures the index is a proper DatetimeIndex before resampling.
     """
     if df is None or df.empty:
         return pd.DataFrame()
 
-    df = df.sort_index()
+    df = df.copy()
+    df.index = pd.to_datetime(df.index, errors="coerce")
+    df = df[~df.index.isna()].sort_index()
+
+    if df.empty:
+        return pd.DataFrame()
+
     # Resample to month-end and forward-fill
-    monthly = df.resample("M").last().ffill()
+    monthly = df.resample("ME").last().ffill()
 
     # Restrict to dates >= start_date
     start_ts = pd.to_datetime(start_date)
@@ -185,7 +188,7 @@ def reindex_monthly(df: pd.DataFrame, start_date: str) -> pd.DataFrame:
 # Main
 # ---------------------------------------------------------------------
 
-def main() -> int:
+def main():
     fred = get_fred_client()
     if fred is None:
         # Write an empty shell file so downstream steps don't blow up.
