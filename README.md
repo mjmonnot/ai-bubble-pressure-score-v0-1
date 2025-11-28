@@ -1,7 +1,3 @@
-# ============================================
-# README.md
-# ============================================
-
 # 🤖 AI Bubble Pressure Score (AIBPS)
 
 The **AI Bubble Pressure Score (AIBPS)** is a research-grade, transparent index that tracks how overheated or subdued the AI economy is relative to its own history and to past macro bubble regimes (dot-com, housing/GFC, COVID).
