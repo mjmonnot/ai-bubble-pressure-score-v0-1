@@ -1,218 +1,232 @@
-# 🧭 How to Interpret the AI Bubble Pressure Score (AIBPS)
-
-_Last updated: {{DATE}}_  
-Version: v0.1
-
-AIBPS measures **systemwide bubble pressure** across AI-related markets, credit, infrastructure, sentiment, and adoption.  
-This guide explains how to read the score, interpret pillar signals, and understand divergences and historical parallels.
+# 📘 1. Introduction
+This guide explains how to read, navigate, and interpret the AIBPS dashboard.  
+It is written for analysts, policymakers, investors, economists, and researchers interested in real-time indicators of AI-driven market pressure, hype cycles, systemic risk, and physical/economic constraints.
 
 ---
 
-# 1. What the AIBPS Measures
+# 🖥️ 2. Dashboard Layout Overview
 
-AIBPS summarizes conditions across six domains:
+The dashboard is organized into six major sections:
 
-- **Market Valuation Pressure**  
-- **Credit & Liquidity Regime**
-- **Capex & Supply Investment Cycles**
-- **Infrastructure (power/datacenter) Constraints**
-- **Adoption Momentum**
-- **Public Attention & Narrative Heat (Sentiment)**
+1. **Main AIBPS Time Series (1980 → present)**  
+   The core composite that synthesizes all pillars into a single 0–100 index.
 
-The index answers one question:
+2. **Regime Bands (Historical Context)**  
+   Shaded ranges representing percentiles or risk zones.
 
-> **To what degree do current conditions resemble the buildup to previous speculative bubbles?**
+3. **Pillar Trajectories**  
+   Long-run 0–100 normalized trends for:
+   - Market  
+   - Credit  
+   - Capex Supply  
+   - Infrastructure  
+   - Adoption  
+   - Sentiment  
 
-It does *not* predict prices — it quantifies *pressure*, not direction.
+4. **Latest Pillar Contributions (Bar Chart)**  
+   Shows which pillars are currently driving the composite score.
 
----
+5. **Sub-Pillar Debug Panels (per pillar)**  
+   Detailed raw + composite views for each underlying data source.
 
-# 2. The 0–100 Bubble Pressure Scale
-
-The score is normalized so each reading fits into a regime:
-
-| Score | Interpretation |
-|-------|----------------|
-| **0–20 → Low** | Underheated, fundamentals strong vs. narratives |
-| **20–40 → Normal** | Stable expansion, no major excesses |
-| **40–60 → Elevated** | Momentum forming, risk appetite rising |
-| **60–80 → Overheated** | High valuations, liquidity thinning, hype accelerating |
-| **80–100 → Extreme** | Historically similar to bubble peaks (Dot Com, 2020 SPAC mania, Crypto 2021, etc.) |
-
-A reading of **90+** does *not* predict an immediate correction, but indicates rare historical stress conditions.
+6. **Data Freshness & Raw Data Viewer**  
+   Verifies whether the automated GitHub Actions update ran recently.
 
 ---
 
-# 3. Interpreting the Regime Color Bands
+# 🎚️ 3. Interpreting the Main AIBPS Line
 
-The main chart displays background shading:
+AIBPS (0–100):
+- **0–20** = Historically low market pressure  
+- **20–40** = Stable, low-risk conditions  
+- **40–60** = Neutral zone  
+- **60–80** = Elevated pressure  
+- **80–100** = Historically extreme conditions
 
-- **Green (0–40):** Healthy expansion  
-- **Yellow (40–60):** Frothy  
-- **Orange (60–80):** Overheated  
-- **Red (80–100):** Historically extreme pressure  
-
-If the line sits in **Red**, it suggests conditions comparable to known bubble peaks when measured across many indicators simultaneously.
-
----
-
-# 4. Interpreting Pillar Trajectories
-
-Each pillar is displayed below the main AIBPS chart.
-
-## ✔ Market
-High = speculative valuations exceed fundamentals  
-Low = markets cooling or consolidating  
-
-Look for:
-- Sharp upward slope → narrative chasing  
-- Long plateaus → persistent over-optimism  
-
-## ✔ Credit
-High = funding conditions strained  
-Low = easy liquidity supporting growth  
-
-Credit often **tightens before markets crack**.
-
-## ✔ Capex Supply  
-High = heavy investment → potential overbuild  
-Low = underinvestment → possible scarcity  
-
-Useful for identifying supply gluts or bottlenecks.
-
-## ✔ Infrastructure  
-High = power/datacenter constraints intensifying  
-Low = infrastructure expanding comfortably  
-
-AI demand can outpace energy/thermal capacity.
-
-## ✔ Adoption  
-High = businesses adopting rapidly (or reporting they are)  
-Low = experimental phase / early cycle  
-
-## ✔ Sentiment  
-High = hype, media intensity, unrealistic expectations  
-Low = low public attention or narrative fatigue  
-
-Sentiment typically peaks *before* fundamentals do.
+AIBPS_RA (smoothed):
+- Removes short-term noise using a rolling average  
+- Better for regime detection and trend following  
+- Helps compare across multi-year cycles
 
 ---
 
-# 5. Reading Divergences (Important)
+# 🧭 4. Understanding the Pillars
 
-Divergences between pillars reveal hidden dynamics:
+Each pillar is normalized on a comparable 0–100 scale.
 
-### **A. Market ↑ while Credit ↓**  
-Speculation rising despite tightening liquidity.  
-Seen in **late 1999** and **late 2021**.
+## Market  
+Tracks prices & valuations (normalized to rolling z-sigmoid).
 
-### **B. Sentiment ↑ while Adoption ↓**  
-Hype far ahead of real deployment.  
-Classic bubble signature.
+## Credit  
+Tracks credit spreads and financing conditions (signal of stress or exuberance).
 
-### **C. Capex ↑ while Market ↓**  
-Buildout continues even as prices soften.  
-Often precedes **post-bubble supply gluts**.
+## Capex Supply  
+Measures AI-related investment capacity from:
+- Semiconductor fabs  
+- Hyperscaler capex  
+- Data-center construction  
+- Equipment orders  
 
-### **D. Infra ↑ while Adoption ↑ but Credit ↑**  
-Rapid growth straining both physical and financial systems.  
-Seen in **2024–2025 GPU/power crunch**.
+## Infrastructure  
+Tracks compute, power, cooling, and network capacity indicators.
 
-These divergences make AIBPS more informative than any single indicator.
+## Adoption  
+Measures real enterprise and productivity adoption & labor substitution effects.
 
----
-
-# 6. Interpreting Historical Callouts (Dot Com, Housing, AI 2023–25)
-
-The chart includes vertical markers identifying major economic bubbles.
-
-### Dot Com (1999–2000)
-- Market pillar extreme  
-- Sentiment off the charts  
-- Credit tightening quietly underneath  
-
-### Housing Bubble (2005–2007)
-- Credit pillar signals strongly  
-- Market less extreme  
-- Adoption outside tech still rising  
-
-### AI 2023–2025 run-up
-- Sentiment & Market surge  
-- Infrastructure pillar under growing strain  
-- Capex catching up with notable lag  
-
-Historical regimes help contextualize current readings:  
-**“Are we in the same zone?”** does not mean *“will it crash?”*  
-but **“are conditions comparable?”**
+## Sentiment  
+Quantifies hype, narrative pressure, and psychological momentum.
 
 ---
 
-# 7. Technical Sidebar (for Analysts)
+# 📉 5. Pillar Trajectory Panels
 
-### **AIBPS uses:**
-- Rolling **Z-score normalization** per pillar  
-- Z-clipping to avoid outlier domination  
-- **Sigmoid transforms** to produce a bounded 0–100 pressure scale  
-- Pillar weighting (equal by default; adjustable)  
-- A rolling-adjusted composite (AIBPS_RA) to smooth high-frequency noise  
+Each trajectory chart displays:
+- Long-run normalized pillar line  
+- Sub-pillars driving the composite  
+- Periods of rapid acceleration or collapse  
+- Alignment with historical events (dot-com, cloud boom, GPU shortage, etc.)
 
-### Why rolling normalization?
-- Ensures comparability across long histories  
-- Avoids distortions from structural breaks (e.g., tech dominance post-2010)  
-- Makes the score sensitive to relative intensity, not raw magnitude  
-
-### Why sigmoid?
-- Converts z-scores into intuitive “pressure” space  
-- Prevents pillar extremes from blowing up composite scores  
-- Places non-linear emphasis on the tails (where bubbles form)
+Usage:
+- Identify leading vs lagging pillars  
+- Assess where pressure is accumulating  
+- Diagnose whether pressure is structural or narrative-driven
 
 ---
 
-# 8. Common Misinterpretations
+# 🧱 6. Sub-Pillar Debug Panels
 
-| Misread | Clarification |
-|--------|---------------|
-| “A high AIBPS = imminent crash.” | No — it means stress resembles past bubble peaks, not that reversal is predicted. |
-| “Sentiment is 100 so the bubble must be bursting.” | Sentiment peaks *before* declines; it is a leading indicator, not a trigger. |
-| “If one pillar is low, the system is safe.” | Bubble pressure emerges from **synchronization**, not individual spikes. |
-| “Composite is flat, so nothing is happening.” | Flat composites often mask internal **pillar divergences**, which matter greatly. |
+Every pillar has a debug expander showing:
+- Raw sub-pillar series  
+- Monthly aligned versions  
+- Composite sub-pillar indicator  
+- Notes on missing or unavailable data  
+- Value tails for sanity checks  
+- Smoothing/normalization method used  
 
----
-
-# 9. Practical Interpretation Guide
-
-### **If AIBPS is rising:**
-Systemwide pressure is increasing.  
-Signals may be diverging but pointing toward overheating.
-
-### **If AIBPS is falling:**
-Either:
-- A real cooling-off is happening  
-- Or pressure is shifting between pillars (e.g., sentiment down, infra up)
-
-### **If AIBPS is stable but elevated (60–80):**
-This historically corresponds to “slow burn bubbles,”  
-not immediate collapse, but vulnerability.
-
-### **If AIBPS enters the red zone (80–100):**
-Historically rare.  
-Suggests systemwide stretch across **multiple independent domains**.
+These panels support:
+- Research replication  
+- Transparency  
+- Troubleshooting (e.g., failed FRED series)  
+- Extending the dataset  
 
 ---
 
-# 10. Summary
+# 🧮 7. Pillar Contribution Bars
 
-AIBPS is best read as:
+This panel answers:
 
-- A **composite systemic pressure signal**  
-- A **framework for comparing cycles**  
-- A **diagnostic tool**, not a prediction engine  
+**“What’s pushing the bubble pressure up right now?”**
 
-When multiple pillars synchronize at high levels, history shows elevated risk of unsustainable conditions.
+Interpretation:
+- Values > 0 → positive pressure contribution  
+- Values < 0 → deflationary pressure  
+- Large bars → major drivers of the current composite  
+- Pale bars → pillars with insufficient or stale data  
 
-Use AIBPS as a **lens**, not a prophecy.
+Typical use:
+- Diagnosing AI hype cycles  
+- Stress-testing “is the bubble narrative justified?”  
+- Comparing supply-side vs demand-side pressure  
+- Tracking inflection points  
 
 ---
 
-_End of Document_  
-Save as: `docs/how_to_interpret_aibps.md`
+# 🚨 8. Regime Interpretation
+
+Regime overlays show historical percentile bands:
+- Grey bars = low-pressure  
+- Yellow = elevated  
+- Orange = stressed  
+- Red = extreme bubble territory  
+
+These help interpret *context*, not just raw values.
+
+---
+
+# 🔄 9. Automatic Updating
+
+Data updates automatically via GitHub Actions:
+- Runs daily at midnight UTC  
+- Pulls FRED, Yahoo, and local/manual datasets  
+- Builds processed CSVs  
+- Recomputes pillar composites  
+- Updates AIBPS/AIBPS_RA  
+- Redeploys Streamlit  
+
+You can verify freshness in the dashboard header.
+
+---
+
+# 📂 10. Viewing Raw Data
+
+Use the "Raw Data" expander to inspect:
+- aibps_monthly.csv  
+- market_processed.csv  
+- credit_fred_processed.csv  
+- macro_capex_processed.csv  
+- infra_processed.csv  
+- adoption_processed.csv  
+- sentiment_processed.csv  
+
+Each file includes:
+- A monthly DatetimeIndex  
+- Sub-pillar columns  
+- Composite pillar columns  
+
+---
+
+# 🛠️ 11. Customization & Weights
+
+Users can modify:
+- Pillar weights  
+- Normalization methods  
+- Smoothing windows  
+- Sub-pillar construction  
+- Date ranges  
+- Regime percentile boundaries  
+
+Changes apply immediately upon redeploy.
+
+---
+
+# 📈 12. Recommended Workflow for Analysts
+
+1. Check AIBPS & AIBPS_RA for regime location  
+2. Review pillar contributions  
+3. Inspect sub-pillar debug views  
+4. Compare historical context (dot-com, 2008, cloud boom, GPU booms)  
+5. Assess which drivers are structural vs speculative  
+6. Adjust weights if exploring alternative hypotheses  
+7. Look for sudden acceleration in:
+   - Market  
+   - Capex  
+   - Sentiment  
+
+---
+
+# 🔍 13. Interpretation Examples
+
+**“AIBPS is rising while Market is flat.”**  
+→ Narrative/sentiment or fundamental adoption is accelerating.
+
+**“Credit spreads tight + capex exploding.”**  
+→ High confidence cycle → overheating likely.
+
+**“Sentiment collapsing but supply rising.”**  
+→ Early-stage fundamental cycle, not a bubble.
+
+**“AIBPS > 80 and all pillars accelerating.”**  
+→ Historically rare → near bubble peak territory.
+
+---
+
+# 🧪 14. Troubleshooting
+
+If values appear flat or NaN:
+- Check FRED API key  
+- Verify FRED series availability (some go stale)  
+- Ensure monthly aligning isn’t dropping data  
+- Look for name mismatches in compute.py  
+- Inspect processed CSV tails via debug panels  
+
+---
