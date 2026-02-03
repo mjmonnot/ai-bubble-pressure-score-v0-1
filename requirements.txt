@@ -5,6 +5,8 @@ pyyaml
 yfinance
 fredapi
 streamlit
+streamlit>=1.3x
+altair>=5,<7
 requests
 sec-edgar-downloader
 python-dotenv
