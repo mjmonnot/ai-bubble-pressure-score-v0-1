@@ -4,8 +4,7 @@ matplotlib
 pyyaml
 yfinance
 fredapi
-streamlit
-streamlit>=1.3x
+streamlit>=1.30.0,<2.0
 altair>=5,<7
 requests
 sec-edgar-downloader
