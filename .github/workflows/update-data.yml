@@ -1,14 +1,19 @@
-# reindex
-
-
 name: Update data
 
 on:
   # Nightly run at 06:00 UTC
   schedule:
-    - cron: '0 6 * * *'
+    - cron: "0 6 * * *"
   # Manual trigger
   workflow_dispatch:
+
+# Prevent overlapping runs that race to push to main
+concurrency:
+  group: update-data-main
+  cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   update-data:
@@ -23,7 +28,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -52,7 +57,7 @@ jobs:
           echo "---- TAIL: data/processed/macro_capex_processed.csv ----"
           tail -n 10 data/processed/macro_capex_processed.csv || true
 
-            # ----- INFRASTRUCTURE (FRED) -----
+      # ----- INFRASTRUCTURE (FRED) -----
       - name: Fetch infrastructure (FRED)
         env:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
@@ -111,10 +116,30 @@ jobs:
           # Add only CSVs in data/processed and data/raw
           git add data/processed/*.csv data/raw/*.csv 2>/dev/null || true
 
+          # Ignore python caches (should be handled by .gitignore, but harmless)
+          git reset -- src/aibps/__pycache__/ 2>/dev/null || true
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
 
           git commit -m "Auto-update data (${GITHUB_RUN_ID})"
-          git push
+
+          # Rebase onto latest main and push (retry to avoid races)
+          for i in 1 2 3; do
+            echo "---- Sync with origin/main (attempt $i) ----"
+            git fetch origin main
+            git rebase origin/main || (git rebase --abort && exit 1)
+
+            if git push; then
+              echo "Push succeeded."
+              exit 0
+            fi
+
+            echo "Push failed due to a race. Retrying..."
+            sleep 5
+          done
+
+          echo "Push failed after retries."
+          exit 1
