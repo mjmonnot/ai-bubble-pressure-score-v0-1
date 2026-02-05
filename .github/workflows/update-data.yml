@@ -12,6 +12,7 @@ concurrency:
   group: update-data-main
   cancel-in-progress: true
 
+# Required so the workflow can push commits back to the repo
 permissions:
   contents: write
 
@@ -116,9 +117,6 @@ jobs:
           # Add only CSVs in data/processed and data/raw
           git add data/processed/*.csv data/raw/*.csv 2>/dev/null || true
 
-          # Ignore python caches (should be handled by .gitignore, but harmless)
-          git reset -- src/aibps/__pycache__/ 2>/dev/null || true
-
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
@@ -126,9 +124,9 @@ jobs:
 
           git commit -m "Auto-update data (${GITHUB_RUN_ID})"
 
-          # Rebase onto latest main and push (retry to avoid races)
-          for i in 1 2 3; do
-            echo "---- Sync with origin/main (attempt $i) ----"
+          # Sync with latest main, then push (retry to avoid races)
+          for i in 1 2 3 4 5; do
+            echo "---- fetch + rebase (attempt $i) ----"
             git fetch origin main
             git rebase origin/main || (git rebase --abort && exit 1)
 
@@ -137,7 +135,7 @@ jobs:
               exit 0
             fi
 
-            echo "Push failed due to a race. Retrying..."
+            echo "Push rejected (race). Retrying..."
             sleep 5
           done
 
